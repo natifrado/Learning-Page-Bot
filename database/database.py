@@ -4,10 +4,10 @@ import os
 def connection():
 
     conn = connect(
-            password="@Nati",
-            user="postgres",
-            database="learningpagebot",
-            host='localhost',
+            password=os.getenv("PWD"),
+            user=os.getenv("USER"),
+            database=os.getenv("DATABASE"),
+            host=os.getenv("HOST"),
             port=5432
         )
 
