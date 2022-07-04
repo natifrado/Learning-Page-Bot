@@ -15,14 +15,9 @@ def account_link():
     hash.update(b'%s'%link.encode('utf-8'))
     return hash.hexdigest()
 
-def invite_link(id:int):
-    acc_link = ''
-    acc_link += lower
-    acc_link+=upper
-    acc_link += nums
-    link = "".join(random.sample(acc_link, 7))
+def invite_link(id: int):
 
-    return link
+    return f'i{id}'
 
 def verification_code():
     ver_code = ''
