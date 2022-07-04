@@ -1,7 +1,7 @@
 from database import connection
 from telebot import types
 conn = connection()
-c = conn.cursor(buffered=True)
+c = conn.cursor()
 from system import creator_id
 
 def language_btn():
@@ -193,7 +193,7 @@ def on_comment(post_id, comment_id):
     return all_btn
 
 
-def members_button(max_id:int, curret_row:int):
+def members_button(max_id: int, curret_row: int):
     btn = types.InlineKeyboardMarkup(row_width=5)
     btn_list, x = [], 0
     if max_id > 10:
@@ -214,7 +214,7 @@ def members_button(max_id:int, curret_row:int):
 
         if row_ >= curret_row:
             for i in range(1, 2):
-                if (curret_row + i) == row_ or curret_row+i > row_:
+                if (curret_row + i) >= row_:
                     break
                 btn_list.append(types.InlineKeyboardButton(f"▶ {curret_row+i}", callback_data=f'members_{curret_row+i}'))
             if not curret_row == row_:
@@ -242,17 +242,24 @@ def cancel(user_lang):
 
 
 def Panel(q_id):
-    all_btn=types.InlineKeyboardMarkup(row_width=3)
-    send = types.InlineKeyboardButton(text="✅",callback_data=f'send_{q_id}')
-    edit=types.InlineKeyboardButton(text="✍",callback_data=f'edit_{q_id}')
-    delete = types.InlineKeyboardButton(text="🗑",callback_data=f'del_{q_id}')
-    all_btn.add(send,edit,delete)
+    all_btn=types.InlineKeyboardMarkup()
+    send = types.InlineKeyboardButton(text="✅", callback_data=f'send_{q_id}')
+    edit=types.InlineKeyboardButton(text="✍", callback_data=f'edit_{q_id}')
+    delete = types.InlineKeyboardButton(text="🗑", callback_data=f'del_{q_id}')
+    all_btn.add(send, edit, delete)
     return all_btn
 
 def withdraw(lang, link):
+    if lang == 'am':
+        txt = "t.me/share/url?url=ሰላም👋+በሀገራችን%20ውስጥ%20ለሀገራችን%20ከ7-12%ላሉ%20ተማሪዎች%20" \
+          "የተሰራ%20የጥያቄና%20መልስ%20ቦት%20ያውቁ%20"\
+          f"ኖሯል?%20ከታች%20በሚገኘው%20ሊንክ%20እርሶም%20ተሳታፊ%20ይሁኑ።+{link}"
+    else:
+        txt = 't.me/share/url?url=Hey👋+do+you+ever+know+in+our+country+for+grade+7-12+students+question+and+answer+' \
+              f'platform+bot?+join+via+bellow+link+{link}'
     all_btn = types.InlineKeyboardMarkup(row_width=5)
     withdr =types.InlineKeyboardButton(text="💳 Withdraw" if lang == 'en' else "💳 ወጪ አርግ",callback_data='withdr')
-    share = types.InlineKeyboardButton(text="⤴ Share" if lang == 'en' else '⤴ አጋራ', url=f"tg://share?url={link}")
+    share = types.InlineKeyboardButton(text="⤴ Share" if lang == 'en' else '⤴ አጋራ', url=txt)
     bonus = types.InlineKeyboardButton(text="🎁 Bonus",callback_data='bonus')
     bt = types.InlineKeyboardButton(text="💸 Transfer Birr" if lang == 'en' else "💸 ብር አስተላልፍ",callback_data='bt')
     all_btn.add(withdr, bonus)
