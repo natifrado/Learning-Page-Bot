@@ -55,7 +55,8 @@ class Answer(StatesGroup):
 
 
 class Feedback(StatesGroup):
-    Text = 'text'
+    get_comment = 'get_feedback'
+    on_state = False
 
 
 class BotSetting(StatesGroup):
@@ -70,6 +71,12 @@ class OnMessage(StatesGroup):
     reply = 'reply'
     to_user = 'to_user'
 
+
+@bot.middleware_handler(['message'])
+def get_update(instance, msg: types.Message):
+    state = bot.get_state(msg.chat.id)
+    if state == Feedback.get_comment and not Feedback.on_state:
+        bot.delete_state(msg.chat.id)
 
 @bot.message_handler(commands=['start'], chat_types=['private'], is_deeplink=False, not_banned=True)
 def start_message(msg: types.Message):
@@ -97,10 +104,7 @@ def start_message(msg: types.Message):
     ui = cur.fetchone()
     
     if ui:
-        try:
-            kwargs = json.loads(ui[0])
-        except Exception as e:
-            kwargs = {}
+        kwargs = ui[0]
     else:
         kwargs = {}
     lang = user_lang(user_id)
@@ -191,7 +195,7 @@ def free_user(msg: types.Message):
     if len(text) == 2:
         try:
             user_id = bot.get_chat(text[1]).id
-            query = '''SELECT first_name, joined_date, gender, username, bio, status FROM students 
+            query = '''SELECT name, joined_date, gender, username, bio, status FROM students 
                 WHERE user_id  = %s'''
             user = db.select_query(query, user_id).fetchone()
             name, jd, gend, us, bio, stat = user
@@ -254,8 +258,8 @@ def english_button(msg):
     lang = user_lang(user_id)
     if not lang == 'en':
         return
-    query = "SELECT first_name, joined_date, gender,username,bio,lang FROM students WHERE user_id = %s"
-    first_name, joined_date, gender, username, bio, lang = db.select_query(query, user_id).fetchone()
+    query = "SELECT name, joined_date, gender,username,bio,lang FROM students WHERE user_id = %s"
+    name, joined_date, gender, username, bio, lang = db.select_query(query, user_id).fetchone()
     if not gender:
         gender = ''
 
@@ -264,13 +268,13 @@ def english_button(msg):
 
     elif msg.text == "👨‍👩‍👦‍👦 Invite":
         query = """
-    SELECT invitation_link, invites, balance, withdraw, bbalance FROM students join bot_setting WHERE user_id = %s"""
+    SELECT invitation_link, invites, balance, withdraw, bbalance FROM students, bot_setting WHERE user_id = %s"""
         link, invites, balance, withdr, bbl = db.select_query(query, user_id).fetchone()
         bot.send_message(user_id, BalanceText['en'].format(balance, withdr, invites, bbl, DEEPLINK + link),
                          parse_mode="HTML", reply_markup=withdraw('en', DEEPLINK + link))
 
     elif msg.text == "⚙️ Settings":
-        bot.send_message(user_id, SettingText.format(first_name, gender, username, bio, tp(time(), joined_date)),
+        bot.send_message(user_id, SettingText.format(name, gender, username, bio, tp(time(), joined_date)),
                          parse_mode="HTML", reply_markup=user_setting(lang))
 
     elif msg.text == "🙋‍♂ My Questions":
@@ -285,8 +289,8 @@ def english_button(msg):
 
     elif msg.text == "💬 Feedback":
         bot.send_message(user_id, "Send us your feedback", reply_markup=cancel('en'))
-        bot.set_state(user_id, Feedback.Text)
-
+        bot.set_state(user_id, Feedback.get_comment)
+        Feedback.on_state = True
 
 @bot.message_handler(func=lambda msg: msg.text in am_btns, chat_types=['private'], joined=True, not_banned=True)
 def amharic_button(msg: types.Message):
@@ -294,8 +298,8 @@ def amharic_button(msg: types.Message):
     lang = user_lang(user_id)
     if not lang == 'am':
         return
-    query = "SELECT first_name,joined_date, gender, username, bio FROM students  WHERE user_id=%s"
-    first_name, joined_date, gender, username, bio = db.select_query(query, user_id).fetchone()
+    query = "SELECT name,joined_date, gender, username, bio FROM students  WHERE user_id=%s"
+    name, joined_date, gender, username, bio = db.select_query(query, user_id).fetchone()
 
     if not gender:
         gender = ""
@@ -304,8 +308,7 @@ def amharic_button(msg: types.Message):
         bot.send_message(msg.chat.id, "_የመጽሃፍ አይነት ይምረጡ_", parse_mode="Markdown", reply_markup=types_book_am())
 
     elif msg.text == "👨‍👩‍👦‍👦 ጋብዝ":
-        query = """SELECT invitation_link, invites, balance, bbalance, withdraw FROM students JOIN bot_setting 
-                WHERE user_id = %s"""
+        query = """SELECT invitation_link, invites, balance, bbalance, withdraw FROM students, bot_setting WHERE user_id = %s"""
 
         link, invites, balance, bbl, withdr = db.select_query(query, user_id).fetchone()
         bot.send_message(user_id, BalanceText['am'].format(balance, withdr, invites, bbl, DEEPLINK+link),
@@ -317,7 +320,7 @@ def amharic_button(msg: types.Message):
         target.join()
 
     elif msg.text == "⚙️ ቅንብሮች":
-        bot.send_message(user_id, SettingText.format(first_name, gender, username, bio, tp(time(), joined_date)),
+        bot.send_message(user_id, SettingText.format(name, gender, username, bio, tp(time(), joined_date)),
                          parse_mode="HTML", reply_markup=user_setting('am'))
 
     elif msg.text == "🗣 ጥያቄ ጠይቅ":
@@ -328,7 +331,7 @@ def amharic_button(msg: types.Message):
     elif msg.text == "💬 አስታየት":
         bot.send_message(user_id, "<code>ያሎትን ሃሳብ ወይም አስታየት ይላኩ።</code>",
                          reply_markup=cancel(lang), parse_mode="html")
-        bot.set_state(user_id, Feedback.Text)
+        bot.set_state(user_id, Feedback.get_comment)
 
 
 @bot.message_handler(not_banned=False, chat_types=['private'])
@@ -344,7 +347,7 @@ def join_channel_message(msg: Union[types.Message, types.CallbackQuery]):
     :return:
     """
     user_id = msg.from_user.id
-    channels = json.loads(db.select_query('select channels from bot_setting').fetchone()[0])
+    channels = (db.select_query('select channels from bot_setting').fetchone()[0])
     username = ''
     for channel, value in channels.items():
         if value['force_join']:
@@ -385,19 +388,22 @@ def get_user(call: types.CallbackQuery):
     try:
         admins = db.select_query("SELECT admins FROM bot_setting").fetchone()[0]
     except TypeError:
-        admins = '{}'
-    kwargs = json.loads(admins)
+        admins = {}
+    kwargs = (admins)
     if text == 'ban':
         if int(user_id) == creator_id():
             return
         bot.answer_callback_query(call.id, "Banned!")
         db.ban_user(user_id)
+        channels = (db.select_query("SELECT channels FROM bot_setting").fetchone()[0])
+        for channel in channels:
+            bot.ban_chat_member(channel, user_id)
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
                                       reply_markup=on_user_(user_id, True, call.message.chat.id, **kwargs))
 
     elif text == 'show':
         bot.answer_callback_query(call.id)
-        query = "SELECT first_name, joined_date, gender, username, bio, status FROM students WHERE user_id  = %s"
+        query = "SELECT name, joined_date, gender, username, bio, status FROM students WHERE user_id  = %s"
         name, jd, gend, us, bio, stat = db.select_query(query, user_id)
         if not gend:
             gend = ""
@@ -409,11 +415,15 @@ def get_user(call: types.CallbackQuery):
                                                f"real <a href='tg://user?id={get.id}'>{get.first_name}</a>",
                                                parse_mode="HTML")
     elif text == 'unban':
-        if int(user_id) == creator_id(): return
+        if int(user_id) == creator_id():
+            return
         bot.answer_callback_query(call.id, "Unbanned!")
         db.unban_user(user_id)
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
                                       reply_markup=on_user_(user_id, False, call.message.chat.id, **kwargs))
+        channels = (db.select_query("SELECT channels FROM bot_setting").fetchone()[0])
+        for channel in channels:
+            bot.unban_chat_member(channel, user_id)
     elif text == "reply":
         admin_id = call.message.chat.id
         bot.send_message(call.message.chat.id, "Hy admin send any message you want to reply",
@@ -461,8 +471,8 @@ def admins_button(msg: types.Message):
     try:
         admin_permision = db.select_query("SELECT admins FROM bot_setting").fetchone()[0]
     except:
-        admin_permision = '{}'
-    admins: dict = json.loads(admin_permision)
+        admin_permision = {}
+    admins: dict = (admin_permision)
     text = msg.text
     user_id = msg.from_user.id
 
@@ -480,7 +490,7 @@ You can also «Forward» text from another chat or channel.
     elif text == "🧩 Questions":
         if user_id == creator_id() or admins[str(user_id)].get('approve_questions'):
             sent = False
-            query = """SELECT students.first_name, students.gender, students.account_link, 
+            query = """SELECT students.name, students.gender, students.account_link, 
                         Questions.question, Questions.caption,
                         Questions.subject, Questions.type_q, Questions.question_id FROM students 
                         JOIN Questions ON students.user_id = Questions.asker_id
@@ -517,7 +527,7 @@ You can also «Forward» text from another chat or channel.
     else:
         if user_id == creator_id() or admins[str(user_id)].get('can_see'):
             count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
-            users = db.select_query("""SELECT first_name, account_link, gender FROM students 
+            users = db.select_query("""SELECT name, account_link, gender FROM students 
                                        ORDER BY joined_date DESC LIMIT 10""").fetchall()
             ls = []
             for n, a, g in users:
@@ -537,7 +547,7 @@ def on_members(call: types.CallbackQuery):
     pos = int(call.data.split('_')[1])
     try:
         count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
-        users = db.select_query("""SELECT first_name, account_link, gender FROM students WHERE id BETWEEN
+        users = db.select_query("""SELECT name, account_link, gender FROM students WHERE id BETWEEN
         %s AND %s""", pos*10-9, pos*10).fetchall()
         ls = []
         for n, a, g in users:
@@ -598,16 +608,19 @@ def on_get_comment_post(msg: types.Message):
         else:
             txt = msg.text
 
-        db.update_query("INSERT INTO comments(to_post, user_id, reply_to, comment, link, status) "
-                        "VALUES(%s, %s, %s, %s, %s, 'pending')",
-                        post_id, msg.chat.id, reply_to, txt, generator.comment_hash_link())
+        db.update_query("INSERT INTO comments(to_post, user_id, reply_to, comment, link, status, time) "
+                        "VALUES(%s, %s, %s, %s, %s, 'pending', %s)",
+                        post_id, msg.chat.id, reply_to, txt, generator.comment_hash_link(), time())
         comment_id = db.select_query("SELECT max(id) FROM comments").fetchone()[0]
 
-        name, acc, gender = db.select_query("SELECT first_name, account_link, gender FROM students WHERE user_id"
+        name, acc, gender = db.select_query("SELECT name, account_link, gender FROM students WHERE user_id"
                                             " = %s", msg.chat.id).fetchone()
+        if not gender:
+            gender = ""
         bot.send_message(msg.chat.id, f"<b>{txt}</b>\n\nBy: <a href='{DEEPLINK+acc}'>{name}</a> {gender}",
                          reply_markup=on_comment(post_id, comment_id), parse_mode='html')
         start_message(msg)
+
 
 @bot.callback_query_handler(lambda call: call.data.startswith('ucomments'))
 def send_user_comment(call: types.CallbackQuery):
@@ -624,6 +637,7 @@ def send_user_comment(call: types.CallbackQuery):
                            reply_markup=oncomment(user_id, post_id, comment_id, _msg_id + 1),
                            reply_to_message_id=msg_id
                            )
+    bot.edit_message_reply_markup(user_id, msg.message_id,reply_markup=oncomment(user_id, post_id, comment_id, msg.message_id))
     if reply_to is not None:
         to_reply_id = db.select_query("SELECT user_id FROM comments WHERE id = %s", reply_to).fetchone()[0]
         if not to_reply_id == user_id:
@@ -640,12 +654,10 @@ def send_user_comment(call: types.CallbackQuery):
                             reply_markup=oncomment(user_id, post_id, comment_id, msg.message_id))
 
     db.update_query("UPDATE comments SET status = 'posted' WHERE id = %s", comment_id)
-
-
     db.update_query("UPDATE comments SET msg_id = %s WHERE id = %s", msg.message_id, comment_id)
     db.update_query("UPDATE admin_post SET browse = browse + 1 WHERE id = %s", post_id)
-    channel = db.select_query("SELECT to_channel FROM admin_post WHERE id = %s", post_id).fetchone()[0]
-    channel = json.loads(channel)
+    channel_ = db.select_query("SELECT to_channel FROM admin_post WHERE id = %s", post_id).fetchone()[0]
+    channel = (channel_)
     post_msg_id = db.select_query('SELECT msg_id FROM admin_post WHERE id = %s', post_id).fetchone()[0]
     browse = db.select_query("SELECT browse FROM admin_post WHERE id = %s", post_id).fetchone()[0]
     link = db.select_query("SELECT link FROM admin_post WHERE id = %s", post_id).fetchone()[0]
@@ -697,7 +709,7 @@ def reply_to_comment(call: types.CallbackQuery):
     post_id = call.data.split(":")[2]
     comment_id =  call.data.split(":")[3]
     msg_id = call.data.split(":")[3]
-    print(comment_id)
+
     bot.send_message(call.message.chat.id, "<code>Send your reply through text</code>", parse_mode='html',
                      reply_markup=cancel(user_lang(call.message.chat.id)))
     bot.set_state(call.message.chat.id, Comment.get_comment)
@@ -758,7 +770,7 @@ def on_got_message(call: types.CallbackQuery):
         if to == 'users':
             send_to_users(call)
         else:
-            channels_id = json.loads(db.select_query('SELECT channels FROM bot_setting').fetchone()[0])
+            channels_id = (db.select_query('SELECT channels FROM bot_setting').fetchone()[0])
             allowed_channels = [key for key, val in channels_id.items() if channels_id[key].get('send_message')]
             if with_ == 'yes':
                 btn = types.InlineKeyboardMarkup(row_width=2)
@@ -849,8 +861,8 @@ def approve_or_decline(call: types.CallbackQuery):
         cur.execute("SELECT channels FROM bot_setting")
         channel = cur.fetchone()[0]
     except:
-        channel = "{}"
-    ch: dict = json.loads(channel)
+        channel = {"{}"}
+    ch: dict = (channel)
     ch_u, ch_i = None, None
     cur.execute("SELECT asker_id FROM Questions  WHERE question_id = %s", (q_id,))
     user_id = cur.fetchone()[0]
@@ -960,14 +972,14 @@ def report_answer(call: types.CallbackQuery):
                      reply_markup=on_user_(user_id, banned, creator_id()))
 
 
-@bot.message_handler(state=Feedback.Text, content_types=util.content_type_media, joined=True, not_banned=True)
+@bot.message_handler(state=Feedback.get_comment, content_types=util.content_type_media, joined=True, not_banned=True)
 def user_feedback(msg):
     conn = connection()
     user_id = msg.chat.id
     cur = conn.cursor()
     lang = user_lang(user_id)
     if msg.text:
-        cur.execute("select first_name, account_link, gender from students where user_id = %s", (user_id,))
+        cur.execute("select name, account_link, gender from students where user_id = %s", (user_id,))
         name, link, gend = cur.fetchone()
         if not gend:
             gend = ''
@@ -978,7 +990,7 @@ from: [{name}]({DEEPLINK+link}) {gend}
 """, reply_markup=on_user_(user_id, banned=False, admin_id=creator_id()),
     parse_mode="Markdown", disable_notification=False)
         cur.execute("SELECT admins FROM bot_setting")
-        admin: dict = json.loads(cur.fetchone()[0])
+        admin: dict = (cur.fetchone()[0])
         for key, val in admin.items():
             if val.get('feedback'):
                 try:
@@ -986,10 +998,12 @@ from: [{name}]({DEEPLINK+link}) {gend}
                     From: [{name}]({DEEPLINK + link}) {gend}
                     """, reply_markup=on_user_(user_id, banned=False, admin_id=int(key),
                     msg_id=msg.message_id,  **admin), parse_mode="Markdown", disable_notification=False)
-                except: continue
+                except:
+                    continue
+        Feedback.on_state = False
     else:
         bot.send_message(user_id, "Text is required!")
-        bot.set_state(user_id, Feedback.Text)
+        bot.set_state(user_id, Feedback.get_comment)
 
 
 @bot.message_handler(state=AskQuestion.question, content_types=['text', 'photo', 'voice', 'video'],
@@ -1047,7 +1061,7 @@ def response_question(msg):
         subje = "#"+subject
     with bot.retrieve_data(user_id) as Question:
         Question['subject'] = subje
-    cur.execute('select first_name,account_link,gender from students where user_id = %s', (user_id,))
+    cur.execute('select name,account_link,gender from students where user_id = %s', (user_id,))
     name, acc, gend = cur.fetchone()
 
     if not gend:
@@ -1094,7 +1108,7 @@ def response_question(msg):
                        parse_mode="html", reply_markup=Panel(q_id))
 
         start_message(msg)
-
+        bot.delete_state(msg.chat.id)
     else:
         bot.send_message(msg.chat.id, "Please use only bellow button!", reply_markup=subject_btn(lang))
         bot.set_state(msg.chat.id, AskQuestion.subject)
@@ -1136,7 +1150,7 @@ def on_questions_status(call: types.CallbackQuery):
     q_id = call.data.split(":")[2]
     text = call.data.split(":")[1]
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     user_id = call.from_user.id
     cur.execute("SELECT status, asker_id FROM Questions WHERE question_id = %s", (q_id,))
     status, q_u_id = cur.fetchone()
@@ -1206,7 +1220,7 @@ def answer_questions(call: types.CallbackQuery):
 def on_preview_answer(msg: types.Message):
     user_id = msg.from_user.id
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     with bot.retrieve_data(user_id) as data:
         q_id = data.get('q_id')
         is_reply = data.get('on_reply')
@@ -1215,9 +1229,10 @@ def on_preview_answer(msg: types.Message):
     photo = msg.photo
     video = msg.video
     voice = msg.voice
-    asker_id = db.select_query("SELECT asker_id FROM questions WHERE question_id = %s", q_id).fetchone()[0]
     if q_id is None:
-        q_id = is_reply['question_id']
+        q_id = is_reply['q_id']
+    asker_id = db.select_query("SELECT asker_id FROM questions WHERE question_id = %s", q_id).fetchone()[0]
+
     if text:
         caption = ""
         typ = "Text"
@@ -1264,8 +1279,8 @@ def on_preview_answer(msg: types.Message):
     db.insert_answer(user_id, q_id, ans, typ, generator.question_link(), caption, reply_to)
     cur.execute("SELECT MAX(answer_id) FROM Answers")
     a_ = cur.fetchone()[0]
-    cur.execute("SELECT first_name, gender, account_link, Answers.time FROM students JOIN Answers ON students.user_id = "
-                " Answers.user_id WHERE students.user_id = %s AND Answers.answer_id = %s", (user_id, a_))
+    cur.execute("SELECT name, gender, account_link, Answers.time FROM students, Answers WHERE students.user_id = "
+                " Answers.user_id AND students.user_id = %s AND Answers.answer_id = %s", (user_id, a_))
     name, gender, link, time_ = cur.fetchone()
     _time = tp(time(), time_)
     parse_time = f"<i>{_time} ago</i>" if _time != "Just now" else "<i>Just now</i>"
@@ -1288,7 +1303,6 @@ def on_preview_answer(msg: types.Message):
                        parse_mode="html", reply_markup=answer_btn(q_id, a_))
     start_message(msg)
 
-
 @bot.callback_query_handler(func=lambda c: re.search("^(Send|Edit|Del)Answer", c.data), joined=True, not_banned=True)
 def send_answer(call: types.CallbackQuery):
     user_id = call.message.chat.id
@@ -1309,13 +1323,14 @@ def send_answer(call: types.CallbackQuery):
         user = is_reply['user_id']
         reply_msg_id = is_reply['user_msg_id']
         msg_id = is_reply['msg_id']
+
     if call.data == f"SendAnswer_{q_id}_{ans_id}":
         db.update_query('update Answers set time = %s where answer_id = %s', time(), ans_id)
         db.update_query("update Answers set status = 'posted' where answer_id = %s", ans_id)
 
         try:
             cur.execute("select channels from bot_setting")
-            channels = json.loads(cur.fetchone()[0])
+            channels = (cur.fetchone()[0])
             
             for key, val in channels.items():
                 if val.get('approve'):
@@ -1326,7 +1341,9 @@ def send_answer(call: types.CallbackQuery):
             umsg = bot.copy_message(user_id, user_id, umsg_id, parse_mode='html',
                                              reply_markup=on_answer(user_id, q_id, ans_id, umsg_id+1),
                                              reply_to_message_id=msg_id)
-
+            bot.edit_message_reply_markup(user_id, umsg.message_id,
+                                          reply_markup=on_answer(user_id, q_id, ans_id, umsg.message_id),
+                                           )
             bot.delete_message(user_id, umsg_id)
             db.update_query('UPDATE Answers set msg_id = %s WHERE answer_id = %s ', umsg.message_id, ans_id)
             db.update_query('update Questions set browse = browse + 1 where question_id = %s', q_id)
@@ -1345,7 +1362,7 @@ def send_answer(call: types.CallbackQuery):
                 pass
 
             username = 'https://t.me/{0}/{1}'.format(ch_u, msg_id)
-
+            print(user_id, user)
             if not is_reply:
                 if not user == user_id:
                     bot.send_message(user, f"🔂 You have one new answer for [your question]({username})",
@@ -1353,7 +1370,7 @@ def send_answer(call: types.CallbackQuery):
                     bot.copy_message(user, user_id, umsg.message_id, parse_mode='html',
                     reply_markup=on_answer(user_id, q_id, ans_id, umsg.message_id))
             else:
-                if not user == user_id:
+                if int(user) != user_id:
                     bot.copy_message(user, user_id, umsg.message_id, parse_mode='html',
                     reply_markup=on_answer(user_id, q_id, ans_id, umsg.message_id),
                                      reply_to_message_id=reply_msg_id)
@@ -1383,7 +1400,7 @@ def reply_to_answer(call: types.CallbackQuery):
     bot.set_state(call.message.chat.id, Answer.answer)
     with bot.retrieve_data(call.message.chat.id) as data:
         data['on_reply'] = {'user_id': call.data.split(":")[1], 'to_id': call.data.split(':')[3],
-        'question_id': call.data.split(":")[2], 'msg_id': call.message.message_id, "user_msg_id": call.data.split(":")[4]}
+        'q_id': call.data.split(":")[2], 'msg_id': call.message.message_id, "user_msg_id": call.data.split(":")[4]}
 
 
 @bot.callback_query_handler(func=lambda call: call.data in ['edus', 'edut', 'edutref'], joined=True, not_banned=True)
@@ -1403,7 +1420,7 @@ def answer_books(call):
 @bot.callback_query_handler(func=lambda c: c.data == 'backgrade', joined=True, not_banned=True)
 def back_grade(call):
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     bot.answer_callback_query(call.id)
     user_id = call.from_user.id
     lang = user_lang(user_id)
@@ -1538,7 +1555,7 @@ class OnBook(StatesGroup):
 @bot.callback_query_handler(func=lambda call: re.match(r"ubook", call.data))
 def on_book_setting(call: types.CallbackQuery):
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     bot.answer_callback_query(call.id)
     bk, cmd, bi = call.data.split(":")
     cur.execute('select grade from books where id = %s ', (bi,))
@@ -1573,7 +1590,7 @@ def on_book_setting(call: types.CallbackQuery):
 @bot.message_handler(state=OnBook.add, content_types=['document'], is_forwarded=True)
 def add_book(msg: types.Message):
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     msg_id = msg.forward_from_message_id
     with bot.retrieve_data(msg.chat.id) as data:
         kw = data['book_id']
@@ -1594,7 +1611,7 @@ def add_book(msg: types.Message):
 def set_book_balance(msg: types.Message):
     balance = msg.text
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     with bot.retrieve_data(msg.chat.id) as data:
         kw = data['book_id']
     cur.execute("UPDATE books set balance = %s WHERE id = %s", (balance, kw))
@@ -1666,22 +1683,22 @@ def cashout_or_ignore(call):
 
             start_message(call.message)
             cur.execute("""
-SELECT first_name,user_id,phone_number, account_link,
+SELECT name,user_id,phone_number, account_link,
 lang, gender, balance FROM students WHERE user_id = %s""", (user_id,))
-            first_name, ui, phone_number, acc_link, lang, gender, balance = cur.fetchone()
+            name, ui, phone_number, acc_link, lang, gender, balance = cur.fetchone()
             if not gender:
                 gender = ''
             bot.send_message(creator_id(), f"""#Withdraw\n
-<a href='{DEEPLINK+acc_link}'>{first_name}</a> {gender}
+<a href='{DEEPLINK+acc_link}'>{name}</a> {gender}
 <b>ID</b> : <code>{ui}</code>
 <b>Asked Balance</b> : {money}
 <b>Current Balance</b>: {balance} 
-<b>Phone Number</b>: {phone}""", parse_mode="HTML", reply_markup=cashout_btn(ui))
+<b>Phone Number</b>: <code>{phone}</code>""", parse_mode="HTML", reply_markup=cashout_btn(ui))
         else:
             if lang == 'en':
                 bot.answer_callback_query(call.id, "Your balance is insufficent", show_alert=True)
             elif lang == 'am':
-                bot.answer_callback_query(call.id, "ይቅርታ የጠየቁት ገንዘብ አሁን ካሎት ገንዘብ በላይ ነው ።", show_alert=True)
+                bot.answer_callback_query(call.id, "ይቅርታ ያሎት ቀሪ ሂሳብ አነስተኛ ነው", show_alert=True)
     else:
         cur.execute('select invitation_link,invites,balance, withdraw, bbalance from students join '
                     'bot_setting where user_id = %s', (user_id,))
@@ -1759,7 +1776,7 @@ def transfer_birr_to_user(call):
     :return:
     """
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     user_id = call.from_user.id
     r_id = call.data.split('_')[1]
     r_id = int(r_id)
@@ -1823,7 +1840,7 @@ def on_recieve_bonus(call):
         with open('bonus.text') as f:
             data = json.loads(f.read())
             if not str(user_id) in data:
-                data[user_id] = {'amount':amount,'time':time()}
+                data[user_id] = {'amount': amount,'time': time()}
                 cur.execute("update students set balance = balance + %s where user_id = %s", (amount, user_id,))
                 conn.commit()
                 with open('bonus.text', 'w') as file:
@@ -1879,7 +1896,7 @@ def on_user_profile(call):
     bot.clear_step_handler_by_chat_id(user_id)
     lang = user_lang(user_id)
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     if call.data == 'fname':
         fname = bot.send_message(user_id, "Enter your name\nYour name can include latters, numbers, undescore and space")
         bot.register_next_step_handler(fname, first_)
@@ -1911,10 +1928,10 @@ def on_user_profile(call):
         bot.edit_message_text(text, user_id, call.message.message_id, reply_markup=user_gender(lang, gender))
 
     else:
-        cur.execute("SELECT first_name, joined_date, phone_number, "
+        cur.execute("SELECT name, joined_date, phone_number, "
             "lang, gender, username, bio FROM students WHERE user_id = %s", (user_id,))
-        first_name, joined_date, phone, lang, gender, username, bio = cur.fetchone()
-        bot.edit_message_text(SettingText.format(first_name, gender, phone, username, bio, tp(time(), joined_date)),
+        name, joined_date, phone, lang, gender, username, bio = cur.fetchone()
+        bot.edit_message_text(SettingText.format(name, gender, username, bio, tp(time(), joined_date)),
                               user_id, call.message.message_id, parse_mode="HTML", reply_markup=user_setting(lang))
         bot.clear_step_handler_by_chat_id(user_id)
 
@@ -1926,16 +1943,16 @@ def first_(msg: types.Message):
     :return:
     """
     user_id = msg.chat.id
-    first_name = msg.text
-    name_regex = re.fullmatch(r"[\w\s]+", first_name)
+    name = msg.text
+    name_regex = re.fullmatch(r"[\w\s]+", name)
     try:
-        first_name = name_regex.group()
+        name = name_regex.group()
     except:
         bot.send_message(user_id, "Invalid name")
         bot.clear_step_handler_by_chat_id(user_id)
         return
     else:
-        db.update_query("UPDATE students SET first_name = %s WHERE user_id = %s", (first_name, user_id))
+        db.update_query("UPDATE students SET name = %s WHERE user_id = %s", *(name, user_id))
         lang = user_lang(user_id)
         if lang == 'am':
             text = "መግለጫዎን ያድሱ"
@@ -2009,7 +2026,7 @@ def bio_(msg):
     :return:
     """
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     user_id = msg.chat.id
     user_bio = re.search(r'(.*){75}', msg.text, re.DOTALL)
 
@@ -2063,14 +2080,14 @@ def gender_edit(call):
 def channel_text():
     #branch of backend
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     try:
         cur.execute("SELECT channels FROM bot_setting")
         channels = cur.fetchone()[0]
     except:
-        channels = '{}'
+        channels = {}
 
-    channels = json.loads(channels)
+    channels = (channels)
     chan = [bot.get_chat(c) for c in channels if channels]
     ch = ["@" + c.username for c in chan]
     chan = '\n'.join(ch)
@@ -2103,7 +2120,7 @@ def on_bot_setting(call: types.CallbackQuery):
     :return:
     """
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     bot.answer_callback_query(call.id)
     text = call.data.split(':')[1]
     user_id = call.message.chat.id
@@ -2197,18 +2214,18 @@ def add_channel(msg: types.Message):
     channel = msg.forward_from_chat
     user_id = msg.from_user.id
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     try:
         assert channel.type == 'channel', "Must be channel not "+channel.type
         assert channel.username, "the channel must have a username!"
         cur.execute("select channels from bot_setting")
-        ujson: dict = json.loads(cur.fetchone()[0])
+        ujson: dict = cur.fetchone()[0]
         ujson.update({str(channel.id): {'send_message': False, 'approve': False, 'force_join': False}})
         cur.execute("update bot_setting set channels = %s", (json.dumps(ujson),))
         conn.commit()
         bot.send_message(user_id, "Channel added successfully ✅")
-        t, k = channel_text()
-        bot.send_message(user_id, CHANNEL.format(t), reply_markup=k, parse_mode='html')
+        text, keyboard = channel_text()
+        bot.send_message(user_id, text, reply_markup=keyboard, parse_mode='html')
     except AssertionError as e:
         bot.send_message(user_id, e.args[0])
     except Exception as e:
@@ -2219,9 +2236,9 @@ def add_channel(msg: types.Message):
 
 def admin_permision(admin_id, o_ad=False):
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     cur.execute("select admins from bot_setting")
-    ujson:dict = json.loads(cur.fetchone()[0])
+    ujson:dict = cur.fetchone()[0]
     cur.execute("select status from students where user_id = %s", (admin_id,))
     stat = cur.fetchone()[0]
     per = ['✅' if ujson[str(admin_id)][key] else "❌" for key in ujson.get(str(admin_id))]
@@ -2233,9 +2250,9 @@ def admin_permision(admin_id, o_ad=False):
 
 def channel_permision(channel_id):
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     cur.execute("select channels from bot_setting")
-    ujson:dict = json.loads(cur.fetchone()[0])
+    ujson: dict = cur.fetchone()[0]
     per = ['✅' if ujson[channel_id][key] else "❌" for key in ujson.get(channel_id)]
     channel = bot.get_chat(channel_id)
     text = CHANNELP.format(channel.username, *per)
@@ -2248,16 +2265,16 @@ def add_admin(msg: types.Message):
     user_id = msg.from_user.id
     user = int(msg.text)
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     try:
         assert not db.user_is_not_exist(user), "User not found"
         cur.execute("select status from students where user_id = %s", (user,))
         assert cur.fetchone()[0] not in ['creator', 'admin'], "User is already admin!"
         cur.execute("select admins from bot_setting")
-        ujson: dict = json.loads(cur.fetchone()[0])
+        ujson: dict = cur.fetchone()[0]
         ujson.update({
-            str(user):{"send_message":False, 'approve_questions': False, 'manage_setting':False, 'ban_user':False,
-                          'feedback':False, 'can_see':False}
+            str(user): {"send_message": False, 'approve_questions': False, 'manage_setting': False, 'ban_user': False,
+                          'feedback': False, 'can_see': False}
         })
         cur.execute("update bot_setting set admins = %s", (json.dumps(ujson),))
         conn.commit()
@@ -2284,7 +2301,7 @@ def click_channel(call: types.CallbackQuery):
 def on_channel_permision(call: types.CallbackQuery):
     bot.answer_callback_query(call.id)
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     channel_id = call.data.split(":")[1]
     text = call.data.split(":")[2]
     user_id = call.from_user.id
@@ -2295,7 +2312,7 @@ def on_channel_permision(call: types.CallbackQuery):
     elif text == 'remove':
         try:
             cur.execute('select channels from bot_setting')
-            ujson:dict = json.loads(cur.fetchone()[0])
+            ujson: dict = cur.fetchone()[0]
             del ujson[channel_id]
             cur.execute('update bot_setting set channels = %s', (json.dumps(ujson),))
             conn.commit()
@@ -2307,17 +2324,17 @@ def on_channel_permision(call: types.CallbackQuery):
     else:
         try:
             cur.execute('select channels from bot_setting')
-            ujson: dict = json.loads(cur.fetchone()[0])
+            ujson: dict = cur.fetchone()[0]
             if ujson[channel_id][text]:
                 ujson[channel_id][text] = False
             else:
                 ujson[channel_id][text] = True
-            cur.execute("update bot_setting set channels = %s", (json.dumps(ujson),))
+            cur.execute("update bot_setting set channels = %s", (json.dumps(ujson), ))
             conn.commit()
             t, b = channel_permision(channel_id)
             bot.edit_message_text(t, user_id, msg_id, reply_markup=b, parse_mode='html')
 
-        except:
+        except Exception:
             bot.send_message(user_id, "channel not found...")
             bot.delete_message(user_id, msg_id)
 
@@ -2333,7 +2350,7 @@ def click_admin(call: types.CallbackQuery):
 @bot.callback_query_handler(lambda call: re.search(r'admin:', call.data))
 def on_admin_permision(call: types.CallbackQuery):
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     bot.answer_callback_query(call.id)
     admin_id = call.data.split(":")[2]
     user_id = call.from_user.id
@@ -2345,10 +2362,10 @@ def on_admin_permision(call: types.CallbackQuery):
 
     if text == 'done':
         try:
-            cur.execute("update students set status = 'admin' where user_id = %s", (admin_id,))
+            cur.execute("update students set status = 'admin' where user_id = %s", (json.dumps(admin_id),))
             conn.commit()
             cur.execute('select admins from bot_setting')
-            ujson: dict = json.loads(cur.fetchone()[0])
+            ujson: dict = cur.fetchone()[0]
             per = ["◽ "+kwargs[key] for key, val in ujson.get(admin_id, {}).items()]
             per = '\n'.join(per)
             bot.send_message(int(admin_id), "🎉 Dear user you have been made as an admin on this bot and you have these "
@@ -2370,7 +2387,7 @@ def on_admin_permision(call: types.CallbackQuery):
             cur.execute("update students set status = 'member' where user_id = %s", (admin_id,))
             conn.commit()
             cur.execute('select admins from bot_setting')
-            ujson: dict = json.loads(cur.fetchone()[0])
+            ujson: dict = cur.fetchone()[0]
             del ujson[admin_id]
             cur.execute('update bot_setting set admins = %s', (json.dumps(ujson),))
             conn.commit()
@@ -2379,17 +2396,17 @@ def on_admin_permision(call: types.CallbackQuery):
             bot.delete_message(user_id, msg_id)
         else:
             t, k = admin_text(call.message.chat.id)
-            bot.edit_message_text(ADMIN.format(t), user_id, msg_id, reply_markup=k, parse_mode='html')
+            bot.edit_message_text(t, user_id, msg_id, reply_markup=k, parse_mode='html')
 
     else:
         try:
             cur.execute('select admins from bot_setting')
-            ujson: dict = json.loads(cur.fetchone()[0])
+            ujson: dict = cur.fetchone()[0]
             if ujson[admin_id][text]:
                 ujson[admin_id][text] = False
             else:
                 ujson[admin_id][text] = True
-            cur.execute('update bot_setting set admins = %s', (json.dumps(ujson),))
+            cur.execute('update bot_setting set admins = %s', (ujson,))
             conn.commit()
         except:
             bot.send_message(user_id, "user not found...")
@@ -2401,12 +2418,12 @@ def on_admin_permision(call: types.CallbackQuery):
 
 def user_not_joined():
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     text = ""
     _text = ""
     get = False
     cur.execute('select channels from bot_setting')
-    channels:dict = json.loads(cur.fetchone()[0])
+    channels:dict = cur.fetchone()[0]
     for key, val in channels.items():
         if val.get('force_join'):
             text+="@"+bot.get_chat(int(key)).username+'\n'
@@ -2434,18 +2451,18 @@ def user_not_joined():
 
 def show_account_info(msg, text):
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     data = []
 
     cur.execute(
-        "select first_name, user_id, joined_date, gender, username, bio, status from "
+        "select name, user_id, joined_date, gender, username, bio, status from "
         "students where account_link = %s",
         (text,))
     data.extend(cur.fetchone())
 
     if not data[4]:
         data[4] = ''
-    first_name, id, joined_date, gender, username, bio, status = data
+    name, id, joined_date, gender, username, bio, status = data
     if status == 'banned':
         banned = True
     else:
@@ -2455,11 +2472,11 @@ def show_account_info(msg, text):
         cur.execute("SELECT admins FROM bot_setting")
         admins = cur.fetchone()[0]
     else:
-        admins = '{}'
-    kwargs = json.loads(admins)
+        admins = {}
+    kwargs = (admins)
     if not id == msg.chat.id:
         bot.send_message(msg.chat.id, f"""\
-<b> {first_name} </b> {gender}
+<b> {name} </b> {gender}
 --------------------------------------------
 <b> Username </b>: {username}
 <b> Bio </b>: <code> {bio} </code>\n
@@ -2477,9 +2494,9 @@ def show_account_info(msg, text):
 
 def user_via_link(msg, text):
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     if db.user_is_not_exist(msg.chat.id):
-        cur.execute("SELECT first_name, gender FROM students "
+        cur.execute("SELECT name, gender FROM students "
                     "WHERE user_id = %s", (text,))
 
         first, gend = cur.fetchone()
@@ -2502,10 +2519,10 @@ def user_via_link(msg, text):
 
 def show_questions(user_id, lang):
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     showed = False
     cur.execute("""
-        SELECT students.first_name, students.gender,students.account_link, 
+        SELECT students.name, students.gender,students.account_link, 
         Questions.question,Questions.browse,Questions.type_q,
         Questions.caption, Questions.time, Questions.browse_link, 
         Questions.subject, Questions.status, Questions.question_id FROM students 
@@ -2513,7 +2530,7 @@ def show_questions(user_id, lang):
         WHERE students.user_id = %s
         """, (user_id,))
     for ui in  cur.fetchall():
-        first_name, gender, acc, q, b, tq, c, t, bl, sub, stat, q_id = ui
+        name, gender, acc, q, b, tq, c, t, bl, sub, stat, q_id = ui
         btn = types.InlineKeyboardMarkup()
         burl = types.InlineKeyboardButton(f"Browse ({b})", url=DEEPLINK + bl)
         btn.add(burl)
@@ -2533,22 +2550,22 @@ def show_questions(user_id, lang):
         showed = True
         try:
             if tq == "Text":
-                bot.send_message(user_id, f"{sub}\n\n<b>{q}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{first_name}</a> {gender}"
+                bot.send_message(user_id, f"{sub}\n\n<b>{q}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{name}</a> {gender}"
                                           f"\n{parse_time}",
                                  parse_mode="html", reply_markup=br)
             elif tq == "Photo":
                 bot.send_photo(user_id, q,
-                               caption=f"{sub}\n\n<b>{c}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{first_name}</a> {gender}"
+                               caption=f"{sub}\n\n<b>{c}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{name}</a> {gender}"
                                        f"\n{parse_time}",
                                parse_mode="html", reply_markup=br)
             elif tq == "Video":
                 bot.send_video(user_id, q,
-                               caption=f"{sub}\n\n<b>{c}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{first_name}</a> {gender}"
+                               caption=f"{sub}\n\n<b>{c}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{name}</a> {gender}"
                                        f"\n{parse_time}",
                                parse_mode="html", reply_markup=br)
             else:
                 bot.send_voice(user_id, q,
-                               caption=f"{sub}\n\n<b>{c}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{first_name}</a> {gender}"
+                               caption=f"{sub}\n\n<b>{c}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{name}</a> {gender}"
                                        f"\n{parse_time}",
                                parse_mode="html", reply_markup=br)
         except:
@@ -2566,14 +2583,14 @@ def show_questions(user_id, lang):
 
 def browse(msg, ids):
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     data = []
     ujson_msg_id = {}
     if 1:
         showed = False
         cur.execute("""
                 SELECT Questions.question, Questions.type_q, Questions.caption,Questions.subject,
-                students.first_name, students.gender, students.account_link, Questions.time FROM students JOIN Questions ON 
+                students.name, students.gender, students.account_link, Questions.time FROM students JOIN Questions ON 
                 Questions.asker_id = students.user_id WHERE Questions.question_id = %s
                 """, (ids,))
         for ui in cur.fetchall():
@@ -2603,11 +2620,11 @@ def browse(msg, ids):
                            caption=f"{subj}\n<b>{c.strip()}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{first}</a> {gend}",
                            parse_mode="html", reply_markup=btn)
         cur.execute("""
-                SELECT students.first_name, students.user_id, students.gender,students.account_link,
+                SELECT students.name, students.user_id, students.gender,students.account_link,
                 Answers.answer, Answers.type_ans, Answers.caption, Answers.reply_to, Questions.question_id,
-                Answers.answer_id, Answers.user_id, Answers.status, Answers.time, Questions.asker_id FROM students JOIN 
-                Answers JOIN Questions ON students.user_id = Answers.user_id AND Questions.question_id = Answers.question_id WHERE 
-                Questions.question_id = %s""", (ids,))
+                Answers.answer_id, Answers.user_id, Answers.status, Answers.time, Questions.asker_id FROM students, 
+                Answers, Questions WHERE students.user_id = Answers.user_id AND Questions.question_id = Answers.question_id 
+                AND Questions.question_id = %s ORDER BY Answers.time""", (ids,))
         for data in cur.fetchall():
             first, ui, gend, acc, ans, ta, c, ar, q_id, ans_id, a_id, status, ans_time, asker_id = data
             reply = ujson_msg_id.get(ar)
@@ -2691,10 +2708,11 @@ def send_to_channel(call: types.CallbackQuery, with_comment: bool, channels: Uni
         db.update_query("INSERT INTO admin_post(from_admin, post, type, date, browse, link, caption, to_channel) "
                         "VALUES(%s, %s, %s, %s, %s, %s, %s, %s)", call.message.chat.id, media, type_, date.today(), 0,
                                                                    generator.comment_link(max_id), caption, _channels)
+        max_id = db.select_query('select max(id) from admin_post').fetchone()[0]
         link = db.select_query("select link from admin_post WHERE id = %s", max_id).fetchone()[0]
         if with_comment:
             btn.add(types.InlineKeyboardButton("🗯 Comment (0)", url=DEEPLINK+link))
-
+        print(with_comment)
         if not with_comment:
             for channel in channels:
                 if media_type == 'text':
@@ -2710,7 +2728,7 @@ def send_to_channel(call: types.CallbackQuery, with_comment: bool, channels: Uni
             elif media_type == 'photo':
                 umsg = bot.send_photo(channels, media, caption, 'html', reply_markup=btn)
             else:
-                umsg = bot.send_video(channels, media, caption=caption, parse_mode='html')
+                umsg = bot.send_video(channels, media, caption=caption, parse_mode='html', reply_markup=btn)
             db.update_query("UPDATE admin_post SET msg_id = %s WHERE id = %s", umsg.message_id, max_id)
     else:
         for channel in channels:
@@ -2719,7 +2737,7 @@ def send_to_channel(call: types.CallbackQuery, with_comment: bool, channels: Uni
 
 def send_to_users(call: types.CallbackQuery):
     conn = connection()
-    cur = conn.cursor(buffered=True)
+    cur = conn.cursor()
     cur.execute("SELECT user_id FROM students")
     users_id = cur.fetchall()
     user_id = [ui for user_id in users_id for ui in user_id]
@@ -2750,10 +2768,10 @@ def send_comment_browse(msg: types.Message, link):
     elif media_type == 'photo':
         bot.send_photo(msg.chat.id, message, caption=f"<b>{caption}</b>", parse_mode='html', reply_markup=btn)
     elif media_type == 'video':
-        bot.send_video(msg.chat.id, "<b>%s</b>" % message, caption=caption, parse_mode='html', reply_markup=btn)
+        bot.send_video(msg.chat.id, message, caption=f"<b>{caption}</b>", parse_mode='html', reply_markup=btn)
 
     users_comment = db.select_query("SELECT comment, user_id, reply_to, id, status, msg_id from comments "
-                                    "WHERE to_post = %s", post_id).fetchall()
+                                    "WHERE to_post = %s ORDER BY time", post_id).fetchall()
     showed = False
     for data_collected in users_comment:
         comment, user_id, reply_to, comment_id, status, msg_id = data_collected
@@ -2762,7 +2780,7 @@ def send_comment_browse(msg: types.Message, link):
 
         name, acc, gen = None, None, None
         for nm, ac, gn in db.select_query(
-            "SELECT first_name, account_link, gender FROM students WHERE user_id  = %s", user_id).fetchall():
+            "SELECT name, account_link, gender FROM students WHERE user_id  = %s", user_id).fetchall():
             name, acc, gen = nm, ac, gn
         if gen is None:
             gen = ''
@@ -2812,7 +2830,7 @@ def main():
     #t1 = threading.Thread(target=forever)
     #t1.start()
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5555)))
-
+    
 
 if __name__ == "__main__":
     main()
