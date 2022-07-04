@@ -32,7 +32,7 @@ ADMIN_ID = 5213764043
 CHANNEL_ID = -1001793167733
 
 TOKEN = os.getenv('TOKEN')
-WEBHOOK_URL = os.getenv('webhook_url')
+WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 bot = TeleBot(TOKEN)
 
 DEEPLINK = 'https://telegram.me/'+bot.get_me().username+'?start='
