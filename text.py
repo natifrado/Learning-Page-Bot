@@ -61,9 +61,9 @@ ADD_ADMIN = """🛠 <b>Adding new Admin</b>\n
 
 CHANNELP = """🔧 Manage bot's permission what it can do on the channel.\n
 📣 channel :  {}\n
+◽ send message : {}
 ◽ approve questions: {}
 ◽ force join: {}
-◽ send message : {}
 
 """
 
