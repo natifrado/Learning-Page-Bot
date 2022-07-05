@@ -1,7 +1,4 @@
-from database import connection
 from telebot import types
-conn = connection()
-c = conn.cursor()
 from system import creator_id
 
 def language_btn():
@@ -145,10 +142,10 @@ def on_user_(user_id, banned=False, admin_id=None, **kwargs):
     all.add(chat, *btn)
     return all
 
-def on_answer(user_id, q_id, ans_id, msg_id):
+def on_answer(user_id, question_id, answer_id, msg_id):
     btn = types.InlineKeyboardMarkup()
     btn.add(
-        types.InlineKeyboardButton("↩ Reply", callback_data=f'reply:{user_id}:{q_id}:{ans_id}:{msg_id}'),
+        types.InlineKeyboardButton("↩ Reply", callback_data=f'reply:{user_id}:{question_id}:{answer_id}:{msg_id}'),
         types.InlineKeyboardButton("⚠ Report", callback_data=f'report:{user_id}')
     )
     return btn
@@ -303,21 +300,21 @@ def subject_btn(lang):
     bio = types.KeyboardButton("🔬 Biology")
     civ = types.KeyboardButton("⚖ Civics")
     hep = types.KeyboardButton("⚽️ HPE")
-    can = types.KeyboardButton("❌ Cancel" if lang=='en' else "❌ ሰርዝ")
+    can = types.KeyboardButton("❌ Cancel" if lang =='en' else "❌ ሰርዝ")
     all_btn.add(math, phy, chem, bio, ict, geo, civ, his, hep, en, am, can)
     return all_btn
 
 def amounts(lang):
     all_btn = types.InlineKeyboardMarkup(row_width=2)
-    _5=types.InlineKeyboardButton(text="5 Birr",callback_data='5-birr')
-    _10=types.InlineKeyboardButton(text="10 Birr",callback_data='10-birr')
-    _15=types.InlineKeyboardButton(text="15 Birr",callback_data='15-birr')
-    _20=types.InlineKeyboardButton(text="20 Birr",callback_data='20-birr')
-    _25=types.InlineKeyboardButton(text="25 Birr",callback_data='25-birr')
-    _50=types.InlineKeyboardButton(text="50 Birr",callback_data='50-birr')
-    _75=types.InlineKeyboardButton(text="75 Birr",callback_data='75-birr')
-    _100=types.InlineKeyboardButton(text="100 Birr",callback_data='100-birr')
-    back=types.InlineKeyboardButton(text="🔙 Back" if lang == 'en' else "🔙 ተመለስ",callback_data='backwithdr')
+    _5 = types.InlineKeyboardButton(text="5 Birr", callback_data='5-birr')
+    _10 = types.InlineKeyboardButton(text="10 Birr", callback_data='10-birr')
+    _15 = types.InlineKeyboardButton(text="15 Birr", callback_data='15-birr')
+    _20 = types.InlineKeyboardButton(text="20 Birr", callback_data='20-birr')
+    _25 = types.InlineKeyboardButton(text="25 Birr", callback_data='25-birr')
+    _50 = types.InlineKeyboardButton(text="50 Birr", callback_data='50-birr')
+    _75 = types.InlineKeyboardButton(text="75 Birr", callback_data='75-birr')
+    _100 = types.InlineKeyboardButton(text="100 Birr", callback_data='100-birr')
+    back = types.InlineKeyboardButton(text="🔙 Back" if lang == 'en' else "🔙 ተመለስ", callback_data='backwithdr')
     all_btn.add(_15, _20, _25, _50, _75, _100)
     #all_btn.add(_20,_25,_50)
     #all_btn.add(_75,_100)
@@ -325,11 +322,11 @@ def amounts(lang):
     return all_btn
 
 def answer_btn(q_id, ans_id):
-    all_btn=types.InlineKeyboardMarkup(row_width=3)
-    send = types.InlineKeyboardButton(text="✅",callback_data=f'SendAnswer_{q_id}_{ans_id}')
-    edit=types.InlineKeyboardButton(text="✍",callback_data=f'EditAnswer_{q_id}_{ans_id}')
-    delete = types.InlineKeyboardButton(text="🗑",callback_data=f'DelAnswer_{q_id}_{ans_id}')
-    all_btn.add(send,edit,delete)
+    all_btn = types.InlineKeyboardMarkup(row_width=3)
+    send = types.InlineKeyboardButton(text="✅", callback_data=f'SendAnswer_{q_id}_{ans_id}')
+    edit = types.InlineKeyboardButton(text="✍", callback_data=f'EditAnswer_{q_id}_{ans_id}')
+    delete = types.InlineKeyboardButton(text="🗑", callback_data=f'DelAnswer_{q_id}_{ans_id}')
+    all_btn.add(send, edit, delete)
     return all_btn
 
 def bscancel():
