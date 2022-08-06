@@ -1,2 +1,0 @@
-#buttons
-from buttons import *
