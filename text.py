@@ -36,6 +36,7 @@ SettingText = """<b> {} </b> {}
 --------------------------------------------\n
 <b> Username </b>: <code>{}</code>
 <b> Bio </b>: <code> {} </code>\n
+<i> Asked questions: {}</i>\n
 --------------------------------------------
 <i> Joined {} ago </i >
 """
