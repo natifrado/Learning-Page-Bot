@@ -1605,7 +1605,11 @@ def on_get_books(call: types.CallbackQuery):
             bot.answer_callback_query(call.id, "This book is not available", show_alert=True)
 
     elif subject == 'back':
+        bot.answer_callback_query(call.id)
         bk = call.data.split(":")[2]
+        if bk == 'student': bk = 'edus'
+        elif bk == 'teacher': bk = 'edut'
+        else: bk = 'ref'
         if call.data == call.data:
             if lang == 'am':
                 text = "የክፍል ደረጃዎን ይምረጡ"
@@ -1613,6 +1617,7 @@ def on_get_books(call: types.CallbackQuery):
                 text = "Select Your Grade"
             bot.edit_message_text(text, call.from_user.id, call.message.id, reply_markup=grade(lang, bk))
     else:
+        bot.answer_callback_query(call.id)
         if lang == 'am':
             text = "_የመጽሃፍ አይነት ይምረጡ_"
         else:
@@ -1640,7 +1645,7 @@ def on_book_setting(call: types.CallbackQuery):
         cur.execute("update books set msg_id = '0' where id = %s", (bi,))
         conn.commit()
         text, btn = info_book(call, gr, ty)
-        bot.edit_message_text(text, call.from_user.id, call.message.message_id, reply_markup=btn)        
+        bot.edit_message_text(text, call.from_user.id, call.message.message_id, reply_markup=btn, parse_mode='html)        
     
     elif cmd == 'back':
         text, btn = info_book(call, gr, ty)
@@ -1982,7 +1987,7 @@ def on_user_profile(call):
                                   "2: only include latters,numbers and underscore (_).\n"
                                   "3: cannot start with numbers or underscore (_) and cannot end with underscore (_).\n"
                                   "4: must be unique\n"
-                                  "5: after $ sign minimum length is 5!"
+                                  "5: after $ sign minimum length is 5!\n"
                                   "6: is case insensetive ($username and $USERNAME are the same)", parse_mode="html")
         username = bot.send_message(user_id, "Enter new username", reply_markup=fr)
         bot.register_next_step_handler(username, username_)
@@ -2002,10 +2007,10 @@ def on_user_profile(call):
         bot.edit_message_text(text, user_id, call.message.message_id, reply_markup=user_gender(lang, gender))
 
     else:
-        query = "SELECT name, joined_date, count(user_id),lang,gender,username, bio FROM students JOIN questions on " \
-                "user_id = asker_id WHERE user_id = %s"
+        query = "SELECT name, joined_date, lang, gender,username, bio FROM students WHERE user_id = %s"
         cur.execute(query, (user_id,))
-        name, joined_date, question, lang, gender, username, bio = cur.fetchone()
+        name, joined_date, lang, gender, username, bio = cur.fetchone()
+        question = db.select_query("SELECT count(asker_id) FROM questions where asker_id = %s", user_id).fetchone()[0]
         bot.edit_message_text(SettingText.format(name, gender, username, bio, question, tp(time(), joined_date)),
                               user_id, call.message.message_id, parse_mode="HTML", reply_markup=user_setting(lang))
         bot.clear_step_handler_by_chat_id(user_id)
