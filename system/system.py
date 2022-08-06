@@ -1,6 +1,7 @@
 from telebot.custom_filters import SimpleCustomFilter
 from database import connection
 
+
 def user_lang(user_id: int):
     conn = connection()
     cur = conn.cursor()
@@ -8,6 +9,7 @@ def user_lang(user_id: int):
     lang = cur.fetchone()
     try:return lang[0]
     except:return 'undifined'
+
 
 def get_message_channels() -> list:
     import json
@@ -26,7 +28,8 @@ def creator_id():
     for i, s in cur.fetchall():
         if s == 'creator':
             return i
-            
+
+
 def get_admins():
     import json
     conn = connection()
@@ -117,7 +120,16 @@ class UserJoinedChannelsFilter(SimpleCustomFilter):
         conn = connection()
         cur = conn.cursor()
         cur.execute("select channels from bot_setting")
-        channels = cur.fetchone()[0]
+        channels = json.loads(cur.fetchone()[0])
+
+        cur.execute('select status from students where user_id = %s', (message.from_user.id,))
+        try: status = cur.fetchone()[0]
+        except: status = None
+
+        if status is None:
+            return True
+        if status in ['creator', 'admin']:
+            return True
 
         for channel, val in channels.items():
             if val.get('force_join'):
