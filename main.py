@@ -24,7 +24,6 @@ from telebot import (
 import os
 import json
 
-#new update v1.1.0
 apihelper.ENABLE_MIDDLEWARE = True
 app = Flask(__name__)
 db = PrivateDatabase()
@@ -1193,7 +1192,7 @@ def send_user_comment(call: types.CallbackQuery):
     db.update_query("UPDATE comments SET status = 'posted' WHERE id = %s", comment_id)
     db.update_query("UPDATE comments SET msg_id = %s WHERE id = %s", msg.message_id, comment_id)
     db.update_query("UPDATE admin_post SET browse = browse + 1 WHERE id = %s", post_id)
-    channel = json.loads(db.select_query("SELECT to_channel FROM admin_post WHERE id = %s", post_id).fetchone()[0])
+    channel = db.select_query("SELECT to_channel FROM admin_post WHERE id = %s", post_id).fetchone()[0]
     post_msg_id = db.select_query('SELECT msg_id FROM admin_post WHERE id = %s', post_id).fetchone()[0]
     browse_ = db.select_query("SELECT browse FROM admin_post WHERE id = %s", post_id).fetchone()[0]
     link = db.select_query("SELECT link FROM admin_post WHERE id = %s", post_id).fetchone()[0]
@@ -2739,11 +2738,7 @@ def send_to_channel(call: types.CallbackQuery, with_comment: bool, channels: Uni
         file, type_ = media, 'video'
     else:
         use_copy = True
-    if not isinstance(channels, list):
-        my_channel = [channels]
-    else:
-        my_channel = channels
-    _channels = json.dumps(my_channel)
+    _channels = channels
     if not use_copy and with_comment:
         from datetime import date
         max_id = db.select_query('select max(id) from admin_post').fetchone()[0]
@@ -2876,8 +2871,8 @@ def main():
     bot.enable_saving_states()
     # t1 = threading.Thread(target=forever)
     # t1.start()
-    # app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5555)))
-    bot.infinity_polling()
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5555)))
+
 
 if __name__ == "__main__":
     main()
