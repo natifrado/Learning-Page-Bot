@@ -29,7 +29,7 @@ app = Flask(__name__)
 db = PrivateDatabase()
 
 ADMIN_ID = 5213764043
-CHANNEL_ID = -1001793167733
+CHANNEL_ID = -1001646258900
 
 TOKEN = os.getenv('TOKEN')
 WEBHOOK_URL = os.getenv('WEBHOOK_URL')
@@ -56,7 +56,6 @@ class Answer(StatesGroup):
 
 class Feedback(StatesGroup):
     get_comment = 'get_feedback'
-    on_state = False
 
 
 class BotSetting(StatesGroup):
@@ -72,11 +71,14 @@ class OnMessage(StatesGroup):
     to_user = 'to_user'
 
 
+@bot.channel_post_handler(commands=['id'])
+def on_channel(msg):
+    print(msg)
+    bot.edit_message_text(f"<code>{msg.chat.id}</code>", msg.chat.id, msg.message_id, parse_mode='html')
+
 @bot.middleware_handler(['message'])
 def get_update(instance, msg: types.Message):
     state = bot.get_state(msg.chat.id)
-    if state == Feedback.get_comment and not Feedback.on_state:
-        bot.delete_state(msg.chat.id)
 
 
 @bot.message_handler(commands=['start'], chat_types=['private'], is_deeplink=False, not_banned=True)
@@ -93,21 +95,19 @@ def start_message(msg: types.Message):
     :param msg:
     :return: Message
     """
+
     user_id = msg.chat.id
-    if db.user_is_not_exist(user_id):
-        date = time()
-        inv_link = generator.invite_link(user_id)
-        acc_link = generator.account_link()
-        if user_id == ADMIN_ID:
-            status = "creator"
-        else:
-            status = "member"
-        db.save_data("Student", user_id, date, inv_link, acc_link, status)
     ui = db.select_query('SELECT admins FROM bot_setting').fetchone()
     if ui:
         kwargs = json.loads(ui[0])
     else:
         kwargs = {}
+    if db.user_is_not_exist(user_id):
+        if user_id == ADMIN_ID:
+            status = 'creator'
+        else: status = 'member'
+
+        db.save_data('Student', user_id, time(), generator.account_link(), status)
     lang = user_lang(user_id)
     if lang == 'en':
         bot.send_message(msg.chat.id, "_Select one Option_", reply_markup=main_buttons('en', user_id, **kwargs),
@@ -215,15 +215,74 @@ def free_user(msg: types.Message):
             if not gend:
                 gend = ""
             get = bot.get_chat(user_id)
-            bot.send_message(msg.chat.id, f"<b>Name:</b> {name} {gend}\n" 
-                                          f"<b>Username:</b> {us}\n<b>Bio:</b> {bio}\n" 
-                                          f"<b>status:</b> {stat}\n" 
-                                          f"mention: <a href='tg://user?id={user_id}'>{name}</a>\n" 
-                                          f"real <a href='tg://user?id={get.id}'>{get.first_name}</a>",
+            bot.send_message(msg.chat.id, f"👤 <b>Name:</b> {name} {gend}\n" 
+                                          f"🧧 <b>Username:</b> {us}\n"
+                                          f"💬 <b>Bio:</b> {bio}\n" 
+                                          f"❇ <b>status:</b> {stat}\n" 
+                                          f"🆔 <a href='tg://user?id={get.id}'>{get.id}</a>",
                              parse_mode="HTML", reply_markup=on_user_(user_id, banned, admin_id=creator_id()))
 
-        except ApiTelegramException:
-            bot.send_message(msg.chat.id, "User not found...")
+        except ApiTelegramException as e:
+            bot.send_message(msg.chat.id, f"User not found...\n\n{e}")
+
+
+@bot.message_handler(commands=['ban'], is_deeplink=True, chat_types=['private'], is_admin_or_creator=True)
+def ban_user_cmd(msg: types.Message):
+    user_id = msg.text.split()[1]
+    ustatus = db.select_query('select status from students where user_id = %s', user_id).fetchone()
+    status = db.select_query('select status from students where user_id = %s', msg.chat.id).fetchone()[0]
+    admins = get_admins()
+
+    if ustatus is not None:
+        if (admins.get(user_id, {}).get('ban_user')) or (status == 'creator' and ustatus[0] != 'creator') \
+                and ustatus[0] != 'banned':
+            db.update_query("update students set status = 'banned' where user_id = %s", user_id)
+            user = bot.get_chat(int(user_id))
+            try:
+                del admins[user_id]
+            except: pass
+            text = f'''<b>✅ User <a href='tg://user?id={user.id}'>{user.id}</a> has been banned.</b>"
+            '''
+            bot.send_message(msg.chat.id, text, parse_mode='html')
+        elif ustatus[0] == 'banned':
+            user = bot.get_chat(int(user_id))
+            text = f'''<b>✅ User <a href='tg://user?id={user.id}'>{user.id}</a> has already banned.</b>
+                    '''
+            bot.send_message(msg.chat.id, text, parse_mode='html')
+
+    else:
+        try:
+            user = bot.get_chat(int(user_id))
+            text = f'''<b>❌ Sorry user <a href='tg://user?id={user.id}'>{user.id}</a> is not a member of this bot.</b>"
+                        '''
+            bot.send_message(msg.chat.id, text, parse_mode='html')
+        except:
+            bot.send_message(msg.chat.id, "Invalid User id")
+
+
+@bot.message_handler(commands=['unban'], is_deeplink=True, chat_types=['private'], is_admin_or_creator=True)
+def unban_user(msg: types.Message):
+    user_id = msg.text.split()[1]
+    ustatus = db.select_query('select status from students where user_id = %s', user_id).fetchone()
+    status = db.select_query('select status from students where user_id = %s', msg.chat.id).fetchone()[0]
+    admins = get_admins()
+
+    if ustatus is not None:
+        if (admins.get(user_id, {}).get('ban_user') and ustatus[0] == 'banned') or \
+                (status == 'creator' and ustatus[0] == 'banned'):
+            db.update_query("update students set status = 'member' where user_id = %s", user_id)
+            user = bot.get_chat(int(user_id))
+            text = f'''<b>✅ User <a href='tg://user?id={user.id}'>{user.id}</a> has been unbanned.</b>"
+            '''
+            bot.send_message(msg.chat.id, text, parse_mode='html')
+    else:
+        try:
+            user = bot.get_chat(int(user_id))
+            text = f'''<b>❌ User <a href='tg://user?id={user.id}'>{user.id}</a> is not banned.</b>"
+                    '''
+            bot.send_message(msg.chat.id, text, parse_mode='html')
+        except:
+            pass
 
 
 @bot.callback_query_handler(func=lambda call: call.data in ['am', 'en'], not_banned=True)
@@ -279,13 +338,14 @@ def english_button(msg):
 
     elif msg.text == "👨‍👩‍👦‍👦 Invite":
         query = """
-    SELECT invitation_link, invites, balance, withdraw, bbalance FROM students JOIN bot_setting WHERE user_id = %s"""
+    SELECT invitation_link, invites, balance, withdraw, bbalance FROM students,  bot_setting WHERE user_id = %s"""
         link, invites, balance, withdr, bbl = db.select_query(query, user_id).fetchone()
         bot.send_message(user_id, BalanceText['en'].format(balance, withdr, invites, bbl, DEEPLINK + link),
                          parse_mode="HTML", reply_markup=withdraw('en', DEEPLINK + link))
 
     elif msg.text == "⚙️ Settings":
-        bot.send_message(user_id, SettingText.format(name, gender, username, bio, tp(time(), joined_date)),
+        question = db.select_query("SELECT count(asker_id) FROM questions WHERE asker_id = %s", user_id).fetchone()[0]
+        bot.send_message(user_id, SettingText.format(name, gender, username, bio, question, tp(time(), joined_date)),
                          parse_mode="HTML", reply_markup=user_setting(lang))
 
     elif msg.text == "🙋‍♂ My Questions":
@@ -337,8 +397,9 @@ def amharic_button(msg: types.Message):
         target.join()
 
     elif msg.text == "⚙️ ቅንብሮች":
-        bot.send_message(user_id, SettingText.format(name, gender, username, bio, tp(time(), joined_date)),
-                         parse_mode="HTML", reply_markup=user_setting('am'))
+        question = db.select_query("SELECT count(asker_id) FROM questions WHERE asker_id = %s", user_id).fetchone()[0]
+        bot.send_message(user_id, SettingText.format(name, gender, username, bio, question, tp(time(), joined_date)),
+                         parse_mode="HTML", reply_markup=user_setting(lang))
 
     elif msg.text == "🗣 ጥያቄ ጠይቅ":
         bot.send_message(user_id, "<code>ጥያቄዎትን በጽሁፍ ፣ በድምጽ ወይም በምስል (video, photo) ይላኩ።</code>",
@@ -351,33 +412,34 @@ def amharic_button(msg: types.Message):
         bot.set_state(user_id, Feedback.get_comment)
 
 
-@bot.message_handler(state=AskQuestion.question, content_types=['text', 'photo', 'voice', 'video'],
+
+@bot.message_handler(state=AskQuestion.question, content_types=util.content_type_media,
                      joined=True, not_banned=True)
 def ask_question(msg):
     user_id = msg.chat.id
     lang = user_lang(user_id)
     with bot.retrieve_data(user_id) as Question:
-        if msg.content_type == "text":
-            Question['text'] = msg.text
+        if not msg.text:
+            if msg.content_type not in  ['sticker', 'animation']:
+                file_id = getattr(msg, msg.content_type).file_id if not msg.photo else msg.photo[-1].file_id
 
-        elif msg.content_type == "photo":
-            if msg.caption is not None:
-                Question['text'] = ["Photo", msg.caption, msg.photo[-1].file_id]
             else:
-                bot.send_message(user_id, "Sorry the photo has not a caption. please send with a caption!")
-                bot.set_state(user_id, AskQuestion.question)
+                bot.send_message(user_id,
+                                 "<code>Allowed content is text, voice, photo, audio please use only this to ask"
+                                 " questions! </code>", parse_mode='html')
                 return
-
-        elif msg.content_type == "voice":
-            Question['text'] = ['Voice', msg.caption, msg.voice.file_id]
 
         else:
-            if msg.caption is not None:
-                Question['text'] = ['Video', msg.caption, msg.video.file_id]
-            else:
-                bot.send_message(user_id, "Sorry the video has not a caption. please send with a caption ")
-                bot.set_state(user_id, AskQuestion.question)
-                return
+            file_id = None
+
+        '''
+        if not msg.text and not msg.caption:
+            bot.send_message(user_id, f"Sorry the {msg.content_type} has not a caption. please send with a caption!")
+            bot.set_state(user_id, AskQuestion.question)
+            return
+        '''
+
+        Question['message'] = {'type': msg.content_type, 'data': msg.text or file_id, 'caption': msg.caption or ''}
 
     if lang == 'en':
         text = "select subject of your question"
@@ -415,45 +477,29 @@ def response_question(msg):
 
     if msg.text in subj:
         with bot.retrieve_data(user_id) as Data:
-            data = Data['text']
-            if isinstance(data, str):
-                text = f"{data}"
-                db.save_question(user_id, text, "Text", subje, generator.question_link(), generator.browse_link())
-                cur.execute("SELECT MAX(question_id) FROM Questions")
-                q_id = cur.fetchone()[0]
+            Data = Data['message']
+            data = Data['data']
+            typ = Data['type']
+            caption = Data['caption']
+            if caption is None: caption = ''
+            db.save_question(user_id, data, typ, subje, generator.question_link(), generator.browse_link(), caption)
+
+            cur.execute("SELECT MAX(question_id) FROM Questions")
+            q_id = cur.fetchone()[0]
+            if typ == 'text':
                 bot.send_message(user_id,
                                  f"{subje}\n\n<b>{data}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{name}</a> {gend}",
                                  reply_markup=Panel(q_id), parse_mode="html")
 
-            else:
-                caption = data[1]
-                file = data[2]
+                start_message(msg)
+                bot.delete_state(msg.chat.id)
+                return
+            system = getattr(bot, f'send_{typ}')
 
-                if caption is None:
-                    caption = ""
-
-                if data[0] == "Photo":
-                    db.save_question(user_id, file, "Photo", subje, generator.question_link(),
-                                     generator.browse_link(), caption)
-                    system = bot.send_photo
-
-                elif data[0] == "Video":
-                    db.save_question(user_id, file, "Video", subje, generator.question_link(),
-                                     generator.browse_link(), caption)
-                    system = bot.send_video
-
-                else:
-                    db.save_question(user_id, file, "Voice", subje, generator.question_link(),
-                                     generator.browse_link(), caption)
-                    system = bot.send_voice
-
-                cur.execute('SELECT MAX(question_id) FROM Questions')
-                q_id = cur.fetchone()[0]
-
-                system(user_id, file,
-                       caption=f"{subje}\n\n<b>{caption}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{name}</a>"
-                               f" {gend}",
-                       parse_mode="html", reply_markup=Panel(q_id))
+            system(user_id, data,
+                   caption=f"{subje}\n\n<b>{caption}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{name}</a>"
+                           f" {gend}",
+                   parse_mode="html", reply_markup=Panel(q_id))
 
         start_message(msg)
         bot.delete_state(msg.chat.id)
@@ -631,7 +677,7 @@ def answer_questions(call: types.CallbackQuery):
         data['json'] = json_format
 
 
-@bot.message_handler(state=Answer.answer, content_types=['text', 'photo', 'voice', 'video'],
+@bot.message_handler(state=Answer.answer, content_types=util.content_type_media,
                      joined=True, not_banned=True, chat_types=['private'])
 def on_preview_answer(msg: types.Message):
     user_id = msg.from_user.id
@@ -642,76 +688,57 @@ def on_preview_answer(msg: types.Message):
 
     text = msg.text
     photo = msg.photo
-    video = msg.video
-    voice = msg.voice
+    caption = msg.caption or ''
+    typ = msg.content_type
     q_id = json_format['question_id']
     asker_id = db.select_query("SELECT asker_id FROM questions WHERE question_id = %s", q_id).fetchone()[0]
-
-
-    if text:
-        caption = ""
-        typ = "Text"
-        ans = text
-        if asker_id == user_id:
-            ans = "#asker\n\n" + ans
-
-    elif photo:
-        typ = "Photo"
-        caption = msg.caption
-
-        if not caption:
-            caption = ''
-        if asker_id == user_id:
-            caption = "#asker\n\n" + caption
-        ans = photo[-1].file_id
-
-    elif video:
-        typ = "Video"
-        caption = msg.caption
-        ans = msg.video
-        if not caption:
-            caption = ''
-        if asker_id == user_id:
-            caption = "#asker\n\n" + caption
-
-    else:
-        typ = "Voice"
-        caption = msg.caption
-        ans = voice.file_id
-        if not caption:
-            caption = ''
-        if asker_id == user_id:
-            caption = "#asker\n\n" + caption
 
     if json_format['is_reply']:
         reply_to = json_format['is_reply']['to_id']
     else:
         reply_to = 0
-    db.insert_answer(user_id, q_id, ans, typ, generator.question_link(), caption, reply_to)
+
+    if text:
+        file = msg.text
+        if asker_id == user_id:
+           file = text = "#asker\n\n" + text
+
+    else:
+        file = getattr(msg, msg.content_type).file_id if photo else msg.photo[-1].file_id
+        if asker_id == user_id:
+            file = caption = "#asker\n\n" + caption
+    db.insert_answer(user_id, q_id, file, typ, generator.question_link(), caption, reply_to)
     cur.execute("SELECT MAX(answer_id) FROM Answers")
     a_ = cur.fetchone()[0]
     cur.execute("SELECT name, gender, account_link, Answers.time FROM students, Answers WHERE students.user_id = "
                 " Answers.user_id AND students.user_id = %s AND Answers.answer_id = %s", (user_id, a_))
     name, gender, link, time_ = cur.fetchone()
     _time = tp(time(), time_)
-    parse_time = f"<i>{_time} ago</i>" if _time != "Just now" else "<i>Just now</i>"
     if not gender:
         gender = ""
+    parse_time = f"<i>{_time} ago</i>" if _time != "Just now" else "<i>Just now</i>"
+
     if text:
-        bot.send_message(user_id, f"<b>{ans}</b>\n\nBy: <a href='{DEEPLINK + link}'>{name}</a> {gender}\n{parse_time}",
+
+        bot.send_message(user_id, f"<b>{text}</b>\n\nBy: <a href='{DEEPLINK + link}'>{name}</a> {gender}\n{parse_time}",
                          parse_mode="html", reply_markup=answer_btn(q_id, a_))
-    elif photo:
-        bot.send_photo(user_id, ans, caption=f"<b>{caption}</b>\n\nBy: <a href='{DEEPLINK + link}'>{name}</a> {gender}"
-                                             f"\n{parse_time}",
-                       parse_mode="html", reply_markup=answer_btn(q_id, a_))
-    elif video:
-        bot.send_video(user_id, ans, caption=f"<b>{caption}</b>\n\nBy: <a href='{DEEPLINK + link}'>{name}</a> {gender}"
-                                             f"\n{parse_time}",
-                       parse_mode="html", reply_markup=answer_btn(q_id, a_))
+        file = text
+
     else:
-        bot.send_voice(user_id, ans, caption=f"<b>{caption}</b>\nBy: <a href='{DEEPLINK + link}'>{name}</a> {gender}"
-                                             f"\n{parse_time}".strip(),
-                       parse_mode="html", reply_markup=answer_btn(q_id, a_))
+        if not msg.content_type == 'sticker':
+            if asker_id == user_id:
+                caption = "#asker\n\n" + caption
+
+            send_document = getattr(bot, f'send_{msg.content_type}')
+            file = getattr(msg, msg.content_type).file_id if photo else msg.photo[-1].file_id
+            send_document(user_id, file, caption=f"<b>{caption}</b>\nBy: <a href='{DEEPLINK + link}'>{name}</a> {gender}"
+                                                 f"\n{parse_time}".strip(),
+                           parse_mode="html", reply_markup=answer_btn(q_id, a_))
+        else:
+            bot.send_message(user_id, "Allowed content is text, voice, photo, audio, gif please use only this to answer"
+                                      " questions! ")
+            return
+
     bot.set_state(user_id, 'no-state')
     with bot.retrieve_data(user_id) as data:
         data['no_state'] = msg.message_id + 1
@@ -809,6 +836,7 @@ def send_answer(call: types.CallbackQuery):
         db.update_query("DELETE FROM Answers WHERE answer_id = %s", ans_id)
         bot.delete_state(call.from_user.id)
 
+
 @bot.callback_query_handler(func=lambda call: re.match(r'^reply', call.data))
 def reply_to_answer(call: types.CallbackQuery):
     bot.answer_callback_query(call.id)
@@ -828,7 +856,9 @@ def reply_to_answer(call: types.CallbackQuery):
 
 @bot.message_handler(not_banned=False, chat_types=['private'])
 def for_banned_user(msg: Union[types.Message, types.CallbackQuery]):
-    bot.send_message(msg.chat.id, "💢 You are currently banned from using the bot.\nConatct @natiprado for more.")
+    remove = types.ReplyKeyboardRemove()
+    bot.send_message(msg.chat.id, "💢 You are currently banned from using the bot.\nContact @natiprado for more.",
+                     reply_markup=remove)
 
 
 @bot.message_handler(joined=False, chat_types=['private'])
@@ -840,12 +870,13 @@ def join_channel_message(msg: Union[types.Message, types.CallbackQuery]):
     """
     user_id = msg.from_user.id
     channels = json.loads(db.select_query('select channels from bot_setting').fetchone()[0])
-    username = ''
+    username, usernames = '', ''
     for channel, value in channels.items():
         if value['force_join']:
             try:
                 if not bot.get_chat_member(channel, user_id).is_member:
                     username += "@" + bot.get_chat(channel).username + "\n"
+                    usernames += "▫️ @" + bot.get_chat(channel).username + "\n"
             except Exception as e:
                 if 'user not found' in e.args[0]:
                     continue
@@ -853,20 +884,22 @@ def join_channel_message(msg: Union[types.Message, types.CallbackQuery]):
     lists = [types.InlineKeyboardButton(name, url=f't.me/{url}') for name, url in channel_list.items()]
     btn = types.InlineKeyboardMarkup(row_width=2)
     btn.add(*lists)
-    bot.send_message(user_id, f"✳ Dear user first you need to join our channel(s)!\n{username}",
+    bot.send_message(user_id, f"✳ Dear user first you need to join our channel(s)!\n\n{usernames}",
                      reply_markup=btn)
 
 
 @bot.callback_query_handler(func=lambda call: True, not_banned=False)
 def call_banned(call: types.CallbackQuery):
     bot.answer_callback_query(call.id)
+    bot.delete_message(call.from_user.id)
     if call.message.chat.type == 'private':
         for_banned_user(call.message)
 
 
 @bot.callback_query_handler(func=lambda call: True, joined=False)
-def call_banned(call: types.CallbackQuery):
+def call_not_joined(call: types.CallbackQuery):
     bot.answer_callback_query(call.id)
+    bot.delete_message(call.from_user.id)
     if call.message.chat.type == 'private':
         join_channel_message(call.message)
 
@@ -879,7 +912,7 @@ def get_user(call: types.CallbackQuery):
     user_id = int(call.data.split(':')[2])
     try:
         admins = json.loads(db.select_query("SELECT admins FROM bot_setting").fetchone()[0])
-    except TypeError:
+    except (TypeError, AttributeError):
         admins = {}
     kwargs = admins
     if text == 'ban':
@@ -904,7 +937,7 @@ def get_user(call: types.CallbackQuery):
                                                f"<b>Username:</b> {us}\n<b>Bio:</b> {bio}\n"
                                                f"<b>status:</b> {stat}\n"
                                                f"mention: <a href='tg://user?id={user_id}'>{name}</a>\n"
-                                               f"real <a href='tg://user?id={get.id}'>{get.first_name}</a>",
+                                               f"real <a href='tg://user?id={get.id}'>{get.id}</a>",
                                                parse_mode="HTML")
     elif text == 'unban':
         if int(user_id) == creator_id():
@@ -960,7 +993,7 @@ def bot_stng_msg(user_id):
 def admins_button(msg: types.Message):
     try:
         permision = json.loads(db.select_query("SELECT admins FROM bot_setting").fetchone()[0])
-    except TypeError:
+    except (TypeError, AttributeError):
         permision = {}
     admins: dict = permision
     text = msg.text
@@ -990,25 +1023,16 @@ You can also «Forward» text from another chat or channel.
                 name, gender, link, question, caption, subject, type_qustion, question_id = user
                 if not gender:
                     gender = ''
-                if type_qustion == "Text":
+                if type_qustion == "text":
                     bot.send_message(user_id, f"{subject}\n\n<b>{question}</b>\n\n"
                                               f"By: <a href='{DEEPLINK+link}'>{name}</a>{gender}",
                                               reply_markup=question_btn(question_id), parse_mode="html")
 
-                elif type_qustion == "Photo":
-                    bot.send_photo(user_id, question, caption=f"{subject}\n\n<b>{caption}</b>\n\n"
-                                                              f"By: <a href='{DEEPLINK+link}'>{name}</a>{gender}",
-                                                              reply_markup=question_btn(question_id), parse_mode="html")
-
-                elif type_qustion == "Voice":
-                    bot.send_voice(user_id, question, caption=f"{subject}\n<b>{caption}/b>\n"
-                                                              f"By: <a href='{DEEPLINK+link}'>{name}</a>{gender}",
-                                                              reply_markup=question_btn(question_id), parse_mode="html")
-
                 else:
-                    bot.send_video(user_id, question, caption=f"{subject}\n\n<b>{caption}</b>\n\n"
-                                                              f"By: <a href='{DEEPLINK+link}'>{name}</a>{gender}",
-                                                              reply_markup=question_btn(question_id), parse_mode="html")
+                    send_document = getattr(bot, f"send_{type_qustion}")
+                    send_document(user_id, question, caption=f"{subject}\n\n<b>{caption}</b>\n\n"
+                                                             f"By: <a href='{DEEPLINK + link}'>{name}</a>{gender}",
+                                                             reply_markup=question_btn(question_id), parse_mode="html")
                 sent = True
 
             if not sent:
@@ -1041,6 +1065,13 @@ def on_members(call: types.CallbackQuery):
         users = db.select_query("""SELECT name, account_link, gender FROM students WHERE id BETWEEN
         %s AND %s""", pos*10-9, pos*10).fetchall()
         ls = []
+        left = count % 10
+        if not left:
+            total = pos * 10
+        elif left:
+            total = ((pos * 10) - count) + pos*10 if pos * 10 > 10 else ((count-(pos*10)))+pos*10
+        else:
+            total = count
         for n, a, g in users:
             if not g:
                 g = ''
@@ -1048,7 +1079,7 @@ def on_members(call: types.CallbackQuery):
         data_ = pd.Series(ls, index=[i for i in range(pos*10-9, pos*10)])
         txt = [f"<i>#{i + (pos*10-9)}.</i> {names}" for i, names in enumerate(data_)]
         data = '\n'.join(txt)
-        bot.edit_message_text(f"{data}\n\nShowed {pos*10}: Total {count}", user_id, msg_id,
+        bot.edit_message_text(f"{data}\n\nShowed {total}: Total {count}", user_id, msg_id,
                               reply_markup=members_button(count, pos))
     except ApiTelegramException:
         bot.answer_callback_query(call.id, "Please press another button!")
@@ -1071,7 +1102,7 @@ def on_get_message(msg: types.Message):
     )
     bot.copy_message(msg.chat.id, msg.chat.id, msg.message_id, parse_mode='HTML', reply_markup=btn)
     start_message(msg)
-
+    bot.delete_state(msg.chat.id)
 
 class Comment(StatesGroup):
     get_comment = 'get_comment'
@@ -1123,6 +1154,7 @@ def on_get_comment_post(msg: types.Message):
         with bot.retrieve_data(msg.chat.id) as data:
             data['no_state'] = msg.message_id + 1
         start_message(msg)
+
 
 @bot.callback_query_handler(lambda call: call.data.startswith('ucomments'))
 def send_user_comment(call: types.CallbackQuery):
@@ -1206,6 +1238,8 @@ def delete_user_comment(call: types.CallbackQuery):
     comment_id = int(call.data.split("_")[2])
     db.update_query("DELETE FROM comments WHERE id = %s", comment_id)
     bot.delete_state(call.from_user.id)
+    bot.delete_message(call.from_user.id, call.message.message_id)
+
 
 @bot.callback_query_handler(lambda call: call.data.startswith('creply'))
 def reply_to_comment(call: types.CallbackQuery):
@@ -1363,7 +1397,7 @@ def approve_or_decline(call: types.CallbackQuery):
     cur = conn.cursor()
     try:
         channel = json.loads(db.select_query("SELECT channels FROM bot_setting").fetchone()[0])
-    except TypeError:
+    except (TypeError, AttributeError):
         channel = {}
     ch: dict = channel
     ch_u, ch_i = None, None
@@ -1683,7 +1717,8 @@ def withdraw_money(call):
 def register_phone(msg):
     phone_number = msg.contact.phone_number
     user_id = msg.chat.id
-    phone = db.select_query("SELECT phone_number FROM students WHERE user_id = %s", user_id).fetchone()
+    phone = db.select_query("SELECT phone_number FROM students WHERE user_id = %s", user_id).fetchone()[0]
+
     if phone is not None:
         return
     db.update_phone(user_id, phone_number)
@@ -1967,10 +2002,11 @@ def on_user_profile(call):
         bot.edit_message_text(text, user_id, call.message.message_id, reply_markup=user_gender(lang, gender))
 
     else:
-        query = "SELECT name, joined_date, phone_number,lang,gender,username, bio FROM students WHERE user_id = %s"
+        query = "SELECT name, joined_date, count(user_id),lang,gender,username, bio FROM students JOIN questions on " \
+                "user_id = asker_id WHERE user_id = %s"
         cur.execute(query, (user_id,))
-        name, joined_date, phone, lang, gender, username, bio = cur.fetchone()
-        bot.edit_message_text(SettingText.format(name, gender, username, bio, tp(time(), joined_date)),
+        name, joined_date, question, lang, gender, username, bio = cur.fetchone()
+        bot.edit_message_text(SettingText.format(name, gender, username, bio, question, tp(time(), joined_date)),
                               user_id, call.message.message_id, parse_mode="HTML", reply_markup=user_setting(lang))
         bot.clear_step_handler_by_chat_id(user_id)
 
@@ -1986,7 +2022,7 @@ def first_(msg: types.Message):
     name_regex = re.fullmatch(r"[\w\s]+", name)
     try:
         name = name_regex.group()
-    except TypeError:
+    except AttributeError:
         bot.send_message(user_id, "Invalid name")
         bot.clear_step_handler_by_chat_id(user_id)
         return
@@ -2054,7 +2090,7 @@ def username_(msg):
                     bot.send_message(user_id, "Username updated!")
                     bot.send_message(user_id, text, reply_markup=edit_profile(user_id, lang))
                     bot.delete_message(user_id, msg.message_id - 3)
-                except TypeError:
+                except AttributeError:
                     pass
     else:
         bot.send_message(user_id, "Invalid username")
@@ -2071,7 +2107,7 @@ def bio_(msg):
 
     try:
         db.update_bio(user_id, user_bio.group())
-    except TypeError as e:
+    except AttributeError as e:
         logging.exception(e)
 
     lang = user_lang(user_id)
@@ -2120,7 +2156,7 @@ def channel_text():
     try:
         cur.execute("SELECT channels FROM bot_setting")
         channels_ = json.loads(cur.fetchone()[0])
-    except TypeError:
+    except (TypeError, AttributeError):
         channels_ = {}
 
     channels = channels_
@@ -2167,7 +2203,7 @@ def on_bot_setting(call: types.CallbackQuery):
         cur.execute("SELECT bbalance FROM bot_setting")
         try:
             birr = cur.fetchone()[0]
-        except TypeError:
+        except (TypeError, AttributeError):
             birr = 0
         bot.edit_message_text(f"Current balance: {birr} Birr", user_id, call.message.message_id, reply_markup=btn)
 
@@ -2221,7 +2257,7 @@ def set_balance(msg: types.Message):
     cur.execute("SELECT bbalance FROM bot_setting")
     try:
         b = cur.fetchone()[0]
-    except TypeError:
+    except (TypeError, AttributeError):
         b = None
     bot.send_message(msg.from_user.id, f"Current balance: {b} Birr", reply_markup=btn)
     start_message(msg)
@@ -2270,7 +2306,7 @@ def add_channel(msg: types.Message):
     except AssertionError as e:
         bot.send_message(user_id, e.args[0])
     except Exception as e:
-        logging.exception(e)
+        pass
     else:
         bot.delete_state(user_id)
 
@@ -2417,7 +2453,6 @@ def on_admin_permision(call: types.CallbackQuery):
             bot.edit_message_text(t, user_id, msg_id, reply_markup=k, parse_mode='html')
 
         except Exception as e:
-            print(e)
             bot.delete_message(user_id, msg_id)
 
     elif text == 'back':
@@ -2590,25 +2625,15 @@ def show_questions(user_id, lang):
             br = btn
         showed = True
         try:
-            if tq == "Text":
+            if tq == "text":
                 bot.send_message(user_id, f"{sub}\n\n<b>{q}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{name}</a> {gender}"
                                           f"\n{parse_time}",
                                  parse_mode="html", reply_markup=br)
-            elif tq == "Photo":
-                bot.send_photo(user_id, q,
-                               caption=f"{sub}\n\n<b>{c}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{name}</a> {gender}"
-                                       f"\n{parse_time}",
-                               parse_mode="html", reply_markup=br)
-            elif tq == "Video":
-                bot.send_video(user_id, q,
-                               caption=f"{sub}\n\n<b>{c}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{name}</a> {gender}"
-                                       f"\n{parse_time}",
-                               parse_mode="html", reply_markup=br)
             else:
-                bot.send_voice(user_id, q,
-                               caption=f"{sub}\n\n<b>{c}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{name}</a> {gender}"
-                                       f"\n{parse_time}",
-                               parse_mode="html", reply_markup=br)
+                system = getattr(bot, f'send_{tq}')
+                system(user_id, q,
+                caption = f"{sub}\n\n<b>{c}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{name}</a> {gender}"
+                f"\n{parse_time}", parse_mode = "html", reply_markup = br)
         except ApiTelegramException:
             continue
 
@@ -2643,21 +2668,14 @@ def browse(msg, ids):
         data.clear()
         btn = types.InlineKeyboardMarkup()
         btn.add(types.InlineKeyboardButton("Answer", callback_data=f"answer_{ids}"))
-        if tq == 'Text':
+        if tq == 'text':
             bot.send_message(msg.chat.id, f"{subjr}\n\n<b>{q}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{first}</a> {gend}",
                                           reply_markup=btn, parse_mode="html")
-        elif tq == "Photo":
-            bot.send_photo(msg.chat.id, q,
-                           caption=f"{subjr}\n\n<b>{c}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{first}</a> {gend}",
-                           parse_mode="html", reply_markup=btn)
-        elif tq == "Video":
-            bot.send_video(msg.chat.id, q,
-                           caption=f"{subjr}\n\n<b>{c}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{first}</a> {gend}",
-                           parse_mode="html", reply_markup=btn)
         else:
-            bot.send_voice(msg.chat.id, q,
-                           caption=f"{subjr}\n<b>{c.strip()}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{first}</a> {gend}",
-                           parse_mode="html", reply_markup=btn)
+            send_document = getattr(bot, f'send_{tq}')
+            send_document(msg.chat.id, q,
+                       caption=f"{subjr}\n\n<b>{c}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{first}</a> {gend}",
+                       parse_mode="html", reply_markup=btn)
         cur.execute("""
                 SELECT students.name, students.user_id, students.gender,students.account_link,
                 Answers.answer, Answers.type_ans, Answers.caption, Answers.reply_to, Questions.question_id,
@@ -2676,35 +2694,22 @@ def browse(msg, ids):
             if status != 'posted':
                 continue
             try:
-                if ta == "Text":
+                if ta == "text":
                     m = bot.send_message(msg.chat.id, f"<b>{ans}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{first}</a> "
                                                       f"{gend}\n{parse_time}".strip(), parse_mode="html",
                                                       reply_markup=on_answer(ui, q_id, ans_id, msg_id),
                                                       reply_to_message_id=reply)
 
-                elif ta == "Photo":
-                    m = bot.send_photo(msg.chat.id, ans,
-                                       caption=f"<b>{c}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{first}</a> {gend}"
-                                               f"\n{parse_time}".strip(), parse_mode="html", reply_to_message_id=reply,
-                                               reply_markup=on_answer(ui, q_id, asker_id, msg_id)
-                                       )
-
-                elif ta == "Video":
-                    m = bot.send_video(msg.chat.id, ans,
-                                       caption=f"<b>{c}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{first}</a> {gend}"
-                                               f"\n{parse_time}".strip(), parse_mode="html", reply_to_message_id=reply,
-                                               reply_markup=on_answer(ui, q_id, ans_id, msg_id)
-                                       )
                 else:
-                    m = bot.send_voice(msg.chat.id, ans,
-                                       caption=f"<b>{c}</b>\nBy: <a href='{DEEPLINK + acc}'>{first}</a> {gend}"
-                                               f"\n{parse_time}".strip(), parse_mode="html", reply_to_message_id=reply,
-                                               reply_markup=on_answer(ui, q_id, ans_id, msg_id)
-                                       )
-
+                    send_document = getattr(bot, f'send_{ta}')
+                    m = send_document(msg.chat.id, ans,
+                               caption=f"<b>{c}</b>\n\nBy: <a href='{DEEPLINK + acc}'>{first}</a> {gend}"
+                                       f"\n{parse_time}".strip(), parse_mode="html", reply_to_message_id=reply,
+                               reply_markup=on_answer(ui, q_id, asker_id, msg_id)
+                               )
                 ujson_msg_id[ans_id] = m.message_id
             except Exception:
-                continue
+                raise
 
             finally:
                 showed = True
@@ -2738,7 +2743,7 @@ def send_to_channel(call: types.CallbackQuery, with_comment: bool, channels: Uni
     else:
         my_channel = channels
     _channels = json.dumps(my_channel)
-    if not use_copy:
+    if not use_copy and with_comment:
         from datetime import date
         max_id = db.select_query('select max(id) from admin_post').fetchone()[0]
         if max_id is None:
@@ -2854,6 +2859,7 @@ def webhook():
     return "!", 200
 
 
+
 def main():
     bot.add_custom_filter(ChatFilter())
     bot.add_custom_filter(IsDigitFilter())
@@ -2870,7 +2876,7 @@ def main():
     # t1 = threading.Thread(target=forever)
     # t1.start()
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5555)))
-
+    
 
 if __name__ == "__main__":
     main()
