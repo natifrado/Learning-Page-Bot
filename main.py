@@ -875,7 +875,7 @@ def join_channel_message(msg: Union[types.Message, types.CallbackQuery]):
         if value['force_join']:
             try:
                 if not bot.get_chat_member(channel, user_id).is_member:
-                    username += "@" + bot.get_chat(channel).username + "\n"
+                    username += bot.get_chat(channel).username + "\n"
                     usernames += "▫️ @" + bot.get_chat(channel).username + "\n"
             except Exception as e:
                 if 'user not found' in e.args[0]:
