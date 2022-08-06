@@ -1,15 +1,10 @@
 from psycopg2 import connect
 import os
 
-def connection():
 
-    conn = connect(
-            password=os.getenv("PWD"),
-            user=os.getenv("USER"),
-            database=os.getenv("DATABASE"),
-            host=os.getenv("HOST"),
-            port=5432
-        )
+def connection():
+    conn = connect(host=os.getenv('host'), password=os.getenv('pwd'),
+                   database=os.getenv('db'), port=int(os.getenv('port')), user=os.getenv('user'))
 
     conn.autocommit = True
     return conn
@@ -30,8 +25,8 @@ class PrivateDatabase:
                         (grade, i, s, 0, 0))
                         conn.commit()
 
-
-    def update_query(self, query, *args):
+    @classmethod
+    def update_query(cls, query, *args):
         conn = connection()
         cur = conn.cursor()
         if not args:
@@ -39,33 +34,33 @@ class PrivateDatabase:
         else:
             cur.execute(query, args)
         conn.commit()
-    
 
-    def select_query(self, query, *args):
+    @classmethod
+    def select_query(cls, query, *args):
         conn = connection()
         cur = conn.cursor()
         if not args:
             cur.execute(query)
         else:
             cur.execute(query, args)
-        return cur
-        
 
-    def user_is_not_exist(self, user_id):
+        return cur
+
+    @classmethod
+    def user_is_not_exist(cls, user_id) -> bool:
         conn = connection()
         cur = conn.cursor()
         cur.execute("SELECT user_id FROM students")
-        if not user_id in [i for j in cur.fetchall() for i in j]:
-                return True
+        if user_id not in [i for j in cur.fetchall() for i in j]:
+            return True
         else:
-            return False 
+            return False
 
-
-    def save_data(self, name, user_id, date,
-                link, acc_lick, status):
-                    
+    @classmethod
+    def save_data(cls, name, user_id, date, acc_lick, status):
+        link = f"i{user_id}"
         list = [name, user_id, date, link, acc_lick, status]
-        self.update_query('''    
+        cls.update_query('''    
             INSERT INTO students(
             name, 
             user_id,
@@ -95,7 +90,8 @@ class PrivateDatabase:
         self.update_query('UPDATE students SET bio = %s WHERE user_id = %s', bio, user_id)
 
     def save_question(self, user_id, text, typ, subj,  q_link, b_link, caption=""):
-        from time import  time
+        from time import time
+        if caption is None: caption = ''
         self.update_query("""INSERT INTO Questions(asker_id, question, time, type_q, status, subject, question_link, 
         browse_link, browse, caption) VALUES(%s , %s, %s, %s, %s, %s, %s, %s, 0, %s)""",
                      user_id, text, time(), typ, 'preview', subj, q_link, b_link, caption)
@@ -109,19 +105,16 @@ class PrivateDatabase:
     def update_invite(self, inviter_id, invited_id):
         self.update_query("INSERT INTO invites VALUES(%s, %s)", inviter_id, invited_id)
         self.update_query("UPDATE students SET invites = invites + 1 WHERE user_id =  %s", inviter_id)
-        
+
         cur = self.select_query("SELECT bbalance from bot_setting")
         bl = cur.fetchone()[0]
         self.update_balance(inviter_id, bl)
-        
+
     def ban_user(self, user_id):
         self.update_query("UPDATE students SET status = 'banned' WHERE user_id = %s", user_id)
 
     def unban_user(self, user_id):
         self.update_query("UPDATE students SET status = 'member' WHERE user_id = %s", user_id)
-        
-    def set_verifie(self, user_id):
-        self.update_query("UPDATE students SET is_verified = 'True' WHERE user_id = %s", user_id)
 
     def insert_answer(self, user_id, q_id, ans, typ, a_link, caption, reply_to=0):
         from time import time
