@@ -67,7 +67,7 @@ def user_setting(lang):
 
 def on_user_question(status, q_id):
     btn = types.InlineKeyboardMarkup()
-    c = types.InlineKeyboardButton("⛔ Cancel", callback_data=f'q:cancel:{q_id}')
+    c = types.InlineKeyboardButton("❌ Cancel", callback_data=f'q:cancel:{q_id}')
     rs = types.InlineKeyboardButton("✔ Resubmit", callback_data=f'q:resubmit:{q_id}')
 
     if status == 'pending':
@@ -99,6 +99,7 @@ def main_buttons(l, user_id, **kwargs):
     all_btn.add(setting, feedback)
     return all_btn
 
+
 def on_book_click(id, exist=False):
     btn = types.InlineKeyboardMarkup()
     if exist:
@@ -110,7 +111,8 @@ def on_book_click(id, exist=False):
     btn.add(types.InlineKeyboardButton("🔙 Back", callback_data=f'ubook:back:{id}'))   
     return btn 
 
-def user_profile_info(user_id, banned = False, admin_id = None, **kwargs):
+
+def user_profile_info(user_id, banned=False, admin_id=None, **kwargs):
     all = types.InlineKeyboardMarkup(row_width=3)
     btn = []
     chat = types.InlineKeyboardButton("📝 Send Message", callback_data=f'user:chat:{user_id}')
@@ -122,9 +124,11 @@ def user_profile_info(user_id, banned = False, admin_id = None, **kwargs):
         'ban_user'):
         btn.append(ban)
     if admin_id == creator_id() or kwargs.get(str(admin_id), {}).get(
-        'can_see'):btn.append(sp)
+        'can_see'):
+        btn.append(sp)
     all.add(*btn)
     return all
+
 
 def on_user_(user_id, banned=False, admin_id=None, **kwargs):
     all = types.InlineKeyboardMarkup(row_width=3)
@@ -141,6 +145,7 @@ def on_user_(user_id, banned=False, admin_id=None, **kwargs):
         btn.append(sp)
     all.add(chat, *btn)
     return all
+
 
 def on_answer(user_id, question_id, answer_id, msg_id):
     btn = types.InlineKeyboardMarkup()
@@ -194,31 +199,43 @@ def members_button(max_id: int, curret_row: int):
     btn = types.InlineKeyboardMarkup(row_width=5)
     btn_list, x = [], 0
     if max_id > 10:
-        row_ = max_id//10
+        row_ = max_id // 10
+        left = max_id % 10
         if curret_row <= 5:
             btn_list.append(types.InlineKeyboardButton(f"1" if curret_row == 1 else f"◀ 1",
-                                             callback_data=f'members_1'))
+                                                       callback_data=f'members_1'))
         else:
             btn_list.append(types.InlineKeyboardButton(f"⏪ 1", callback_data=f'members_1'))
-
-        if curret_row == row_:
+        if curret_row == 1 and row_ == 1 and left:
+            btn_list.append(
+                types.InlineKeyboardButton(f"▶ {curret_row + 1}", callback_data=f'members_{curret_row + 1}'))
+        if curret_row - 2 > row_:
             btn_list.append(
                 types.InlineKeyboardButton(f"◀ {curret_row - 2}", callback_data=f'members_{curret_row - 2}'))
-        if curret_row-1 > 1:
-            btn_list.append(types.InlineKeyboardButton(f"◀ {curret_row-1}", callback_data=f'members_{curret_row-1}'))
+        if curret_row - 1 > 1:
+            btn_list.append(
+                types.InlineKeyboardButton(f"◀ {curret_row - 1}", callback_data=f'members_{curret_row - 1}'))
+
         if not curret_row == 1:
             btn_list.append(types.InlineKeyboardButton(f"{curret_row}", callback_data=f'members_{curret_row}'))
-
-        if row_ >= curret_row:
+        if row_ >= curret_row or left:
             for i in range(1, 2):
-                if (curret_row + i) >= row_:
+                if (curret_row + i) > row_:
                     break
-                btn_list.append(types.InlineKeyboardButton(f"▶ {curret_row+i}", callback_data=f'members_{curret_row+i}'))
-            if not curret_row == row_:
-                btn_list.append(types.InlineKeyboardButton(f"⏩ {row_}" if curret_row+5 <= row_ else f"▶ {row_}",
+                btn_list.append(
+                    types.InlineKeyboardButton(f"▶ {curret_row + i}", callback_data=f'members_{curret_row + i}'))
+            if not curret_row == row_ and not left:
+                btn_list.append(types.InlineKeyboardButton(f"⏩ {row_}" if curret_row + 5 <= row_ else f"▶ {row_}",
+                                                           callback_data=f'members_{row_}'))
+        if not curret_row == row_+1 and left:
+            btn_list.append(types.InlineKeyboardButton(f"⏩ {row_ + 1}" if curret_row + 5 <= row_ else f"▶ {row_ + 1}",
+                                                        callback_data=f'members_{row_ + 1}'))
+        if not curret_row == row_ and not left:
+            btn_list.append(types.InlineKeyboardButton(f"⏩ {row_}" if curret_row + 5 <= row_ else f"▶ {row_}",
                                                        callback_data=f'members_{row_}'))
     btn.add(*btn_list)
     return btn
+
 
 
 def bot_setting_btn():
