@@ -1645,7 +1645,7 @@ def on_book_setting(call: types.CallbackQuery):
         cur.execute("update books set msg_id = '0' where id = %s", (bi,))
         conn.commit()
         text, btn = info_book(call, gr, ty)
-        bot.edit_message_text(text, call.from_user.id, call.message.message_id, reply_markup=btn, parse_mode='html)        
+        bot.edit_message_text(text, call.from_user.id, call.message.message_id, reply_markup=btn, parse_mode='html')        
     
     elif cmd == 'back':
         text, btn = info_book(call, gr, ty)
