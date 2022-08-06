@@ -1335,7 +1335,7 @@ def on_got_message(call: types.CallbackQuery):
 @bot.message_handler(state=OnMessage.add_btn)
 def on_send_btn(msg: types.Message):
     text = msg.text
-    match = re.findall(r".+\s*->\s*[a-zA-Z.@]+", text)
+    match = re.findall(r".+\s*->\s*.+", text, re.VERBOSE)
     if match:
         btns = {k.split('->')[0]: k.split('->')[1] for k in match}
         for k, v in btns.items():
