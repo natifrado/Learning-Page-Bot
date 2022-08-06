@@ -24,6 +24,7 @@ from telebot import (
 import os
 import json
 
+#new update v1.1.0
 apihelper.ENABLE_MIDDLEWARE = True
 app = Flask(__name__)
 db = PrivateDatabase()
