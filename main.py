@@ -1201,7 +1201,7 @@ def send_user_comment(call: types.CallbackQuery):
     bot.delete_message(user_id, call.message.message_id)
 
     try:
-        bot.edit_message_reply_markup(channel[0], post_msg_id, reply_markup=btn)
+        bot.edit_message_reply_markup(channel, post_msg_id, reply_markup=btn)
     except Exception as e:
         logging.exception(e)
     bot.delete_state(user_id)
