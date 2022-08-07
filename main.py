@@ -1068,7 +1068,7 @@ def on_members_setting(call: types.CallbackQuery):
     print(pos)
     try:
         # bot.answer_callback_query(call.id)
-        count = db.select_query("SELECT count(user_id) FROM student").fetchone()[0]
+        count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
         users = db.select_query("""SELECT id FROM students WHERE id BETWEEN
         %s AND %s""", pos*10-9, pos*10).fetchall()
         ls = []
@@ -1086,6 +1086,7 @@ def on_members_setting(call: types.CallbackQuery):
         else:
             total = count
         print(total, count)
+        bot.send_message(msg.chat.id, "On statics")
         bot.edit_message_text(f"{data}\n\nShowed {total}: Total {count}", user_id, msg_id,
                               reply_markup=members_button(count, pos))
     except apihelper.ApiException:
