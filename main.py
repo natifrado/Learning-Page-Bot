@@ -219,7 +219,8 @@ def free_user(msg: types.Message):
                                           f"🧧 <b>Username:</b> {us}\n"
                                           f"💬 <b>Bio:</b> {bio}\n" 
                                           f"❇ <b>status:</b> {stat}\n" 
-                                          f"🆔 <a href='tg://user?id={get.id}'>{get.id}</a>",
+                                          f"🆔 <a href='tg://user?id={get.id}'>{get.id}</a>\n"
+                                          f"@{get.username}",
                              parse_mode="HTML", reply_markup=on_user_(user_id, banned, admin_id=creator_id()))
 
         except ApiTelegramException as e:
@@ -861,6 +862,11 @@ def for_banned_user(msg: Union[types.Message, types.CallbackQuery]):
                      reply_markup=remove)
 
 
+@bot.message_handler(joined='start', chat_types=['private'])
+def join_channel_message_start(msg: Union[types.Message, types.CallbackQuery]):
+    start_message(msg)
+
+    
 @bot.message_handler(joined=False, chat_types=['private'])
 def join_channel_message(msg: Union[types.Message, types.CallbackQuery]):
     """
@@ -936,9 +942,8 @@ def get_user(call: types.CallbackQuery):
         bot.send_message(call.message.chat.id, f"<b>Name:</b> {name} {gend}\n"
                                                f"<b>Username:</b> {us}\n<b>Bio:</b> {bio}\n"
                                                f"<b>status:</b> {stat}\n"
-                                               f"mention: <a href='tg://user?id={user_id}'>{name}</a>\n"
                                                f"real <a href='tg://user?id={get.id}'>{get.id}</a>",
-                                               parse_mode="HTML")
+                                               parse_mode="html")
     elif text == 'unban':
         if int(user_id) == creator_id():
             return
