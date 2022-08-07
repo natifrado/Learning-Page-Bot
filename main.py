@@ -1090,7 +1090,8 @@ def on_members_setting(call: types.CallbackQuery):
         bot.edit_message_text(f"{data}\n\nShowed {total}: Total {count}", user_id, msg_id,
                               reply_markup=members_button(count, pos))
     except apihelper.ApiException:
-        bot.answer_callback_query(call.id, "Please press another button!")
+        raise
+        #bot.answer_callback_query(call.id, "Please press another button!")
 
     except: raise
 
