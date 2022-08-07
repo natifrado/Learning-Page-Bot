@@ -1086,7 +1086,7 @@ def on_members_setting(call: types.CallbackQuery):
         else:
             total = count
         print(total, count)
-        bot.send_message(msg.chat.id, "On statics")
+        bot.send_message(user_id, "On statics")
         bot.edit_message_text(f"{data}\n\nShowed {total}: Total {count}", user_id, msg_id,
                               reply_markup=members_button(count, pos))
     except apihelper.ApiException:
