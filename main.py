@@ -1073,6 +1073,7 @@ def on_members_setting(call: types.CallbackQuery):
         users = db.select_query("""SELECT name, account_link, gender FROM students WHERE id BETWEEN
         %s AND %s LIMIT 10""", (pos*10)-9, pos*10).fetchall()
         ls = []
+        print("len users 2", len(users))
         for name, acc, gen in users:
             if gen is None:gen = ""
             
