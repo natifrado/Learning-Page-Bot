@@ -887,7 +887,7 @@ def join_channel_message(msg: Union[types.Message, types.CallbackQuery]):
                 if 'user not found' in e.args[0]:
                     continue
     channel_list = {bot.get_chat(chat_id).title: chat_id for chat_id in username.split('\n') if chat_id != ''}
-    lists = [types.InlineKeyboardButton(name, url=f't.me/{url[1:}') for name, url in channel_list.items()]
+    lists = [types.InlineKeyboardButton(name, url=f't.me/{url[1:]}') for name, url in channel_list.items()]
     btn = types.InlineKeyboardMarkup(row_width=2)
     btn.add(*lists)
     bot.send_message(user_id, f"✳ Dear user first you need to join our channel(s)!\n\n{usernames}",
