@@ -1065,16 +1065,18 @@ def on_members_setting(call: types.CallbackQuery):
     
     user_id, msg_id = call.message.chat.id, call.message.message_id
     pos = int(call.data.split('_')[1])
-    print(pos)
+    # print(pos)
     try:
-        # bot.answer_callback_query(call.id)
+        bot.answer_callback_query(call.id)
         count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
-        users = db.select_query("""SELECT user_id FROM students WHERE id BETWEEN
+        users = db.select_query("""SELECT name, account_link, gender FROM students WHERE id BETWEEN
         %s AND %s""", pos*10-9, pos*10).fetchall()
         ls = []
-        for i in users:
-            user = bot.get_chat(i[0])
-            ls.append(util.user_link(user))
+        for name, acc, gen in users:
+            if gen is None:gen = ""
+            
+            user = f"<a href='{DEEPLINK+acc}'>{name}</a> {gen}"
+            ls.append(user)
         data_ = pd.Series(ls)
         txt = [f"<i>#{i + (pos*10-9)}.</i> {names}" for i, names in enumerate(data_)]
         data = '\n'.join(txt)
@@ -1085,10 +1087,10 @@ def on_members_setting(call: types.CallbackQuery):
             total = pos * 10
         else:
             total = count
-        print(total, count)
-        bot.send_message(user_id, "On statics")
+        # print(total, count)
+        # bot.send_message(user_id, "On statics")
         bot.edit_message_text(f"{data}\n\nShowed {total}: Total {count}", user_id, msg_id,
-                              reply_markup=members_button(count, pos))
+                              reply_markup=members_button(count, pos), parse_mode="html")
     except apihelper.ApiException:
         #raise
         bot.answer_callback_query(call.id, "Please press another button!")
