@@ -1069,11 +1069,11 @@ def on_members_setting(call: types.CallbackQuery):
     try:
         # bot.answer_callback_query(call.id)
         count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
-        users = db.select_query("""SELECT id FROM students WHERE id BETWEEN
+        users = db.select_query("""SELECT user_id FROM students WHERE id BETWEEN
         %s AND %s""", pos*10-9, pos*10).fetchall()
         ls = []
         for i in users:
-            user = bot.get_chat(i)
+            user = bot.get_chat(i[0])
             ls.append(util.user_link(user))
         data_ = pd.Series(ls)
         txt = [f"<i>#{i + (pos*10-9)}.</i> {names}" for i, names in enumerate(data_)]
@@ -1090,8 +1090,8 @@ def on_members_setting(call: types.CallbackQuery):
         bot.edit_message_text(f"{data}\n\nShowed {total}: Total {count}", user_id, msg_id,
                               reply_markup=members_button(count, pos))
     except apihelper.ApiException:
-        raise
-        #bot.answer_callback_query(call.id, "Please press another button!")
+        #raise
+        bot.answer_callback_query(call.id, "Please press another button!")
 
     except: raise
 
