@@ -881,13 +881,13 @@ def join_channel_message(msg: Union[types.Message, types.CallbackQuery]):
         if value['force_join']:
             try:
                 if not bot.get_chat_member(channel, user_id).is_member:
-                    username += bot.get_chat(channel).username + "\n"
+                    username += "@"+bot.get_chat(channel).username + "\n"
                     usernames += "▫️ @" + bot.get_chat(channel).username + "\n"
             except Exception as e:
                 if 'user not found' in e.args[0]:
                     continue
     channel_list = {bot.get_chat(chat_id).title: chat_id for chat_id in username.split('\n') if chat_id != ''}
-    lists = [types.InlineKeyboardButton(name, url=f't.me/{url}') for name, url in channel_list.items()]
+    lists = [types.InlineKeyboardButton(name, url=f't.me/{url[1:}') for name, url in channel_list.items()]
     btn = types.InlineKeyboardMarkup(row_width=2)
     btn.add(*lists)
     bot.send_message(user_id, f"✳ Dear user first you need to join our channel(s)!\n\n{usernames}",
