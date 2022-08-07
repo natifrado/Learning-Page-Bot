@@ -1085,7 +1085,7 @@ def on_members(call: types.CallbackQuery):
         txt = [f"<i>#{i + (pos*10-9)}.</i> {names}" for i, names in enumerate(data_)]
         data = '\n'.join(txt)
         bot.edit_message_text(f"{data}\n\nShowed {total}: Total {count}", user_id, msg_id,
-                              reply_markup=members_button(count, pos))
+                              reply_markup=members_button(count, pos), parse_mode="html")
     except ApiTelegramException:
         bot.answer_callback_query(call.id, "Please press another button!")
 
