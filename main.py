@@ -1061,14 +1061,14 @@ You can also «Forward» text from another chat or channel.
 
 
 @bot.callback_query_handler(lambda call: re.search(r'^members', call.data))
-def on_members(call: types.CallbackQuery):
+def on_members_setting(call: types.CallbackQuery):
     
     user_id, msg_id = call.message.chat.id, call.message.message_id
     pos = int(call.data.split('_')[1])
     print(pos)
     try:
-        bot.answer_callback_query(call.id)
-        count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
+        # bot.answer_callback_query(call.id)
+        count = db.select_query("SELECT count(user_id) FROM student").fetchone()[0]
         users = db.select_query("""SELECT id FROM students WHERE id BETWEEN
         %s AND %s""", pos*10-9, pos*10).fetchall()
         ls = []
