@@ -1062,10 +1062,11 @@ You can also «Forward» text from another chat or channel.
 
 @bot.callback_query_handler(lambda call: re.search(r'members', call.data))
 def on_members(call: types.CallbackQuery):
-    bot.answer_callback_query(call.id)
+    
     user_id, msg_id = call.message.chat.id, call.message.message_id
     pos = int(call.data.split('_')[1])
     try:
+        bot.answer_callback_query(call.id)
         count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
         users = db.select_query("""SELECT id FROM students WHERE id BETWEEN
         %s AND %s ORDER BY joined_date LIMIT 10""", pos*10-9, pos*10).fetchall()
@@ -1083,6 +1084,7 @@ def on_members(call: types.CallbackQuery):
             total = pos * 10
         else:
             total = count
+        print(total, count)
         bot.edit_message_text(f"{data}\n\nShowed {total}: Total {count}", user_id, msg_id,
                               reply_markup=members_button(count, pos))
     except apihelper.ApiException:
