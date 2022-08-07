@@ -1084,11 +1084,13 @@ def on_members(call: types.CallbackQuery):
             total = pos * 10
         else:
             total = count
-        print(total, count)
+        # print(total, count)
         bot.edit_message_text(f"{data}\n\nShowed {total}: Total {count}", user_id, msg_id,
                               reply_markup=members_button(count, pos))
     except apihelper.ApiException:
         bot.answer_callback_query(call.id, "Please press another button!")
+
+    except: raise
 
 
 @bot.message_handler(state='no-state')
