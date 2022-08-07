@@ -1049,6 +1049,7 @@ You can also «Forward» text from another chat or channel.
             users = db.select_query("""SELECT name, account_link, gender FROM students 
                                         LIMIT 10""").fetchall()
             ls = []
+            print("len users is ", len(users))
             for n, a, g in users:
                 if not g:
                     g = ''
@@ -1065,12 +1066,12 @@ def on_members_setting(call: types.CallbackQuery):
     
     user_id, msg_id = call.message.chat.id, call.message.message_id
     pos = int(call.data.split('_')[1])
-    # print(pos)
+    print(pos)
     try:
         bot.answer_callback_query(call.id)
         count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
         users = db.select_query("""SELECT name, account_link, gender FROM students WHERE id BETWEEN
-        %s AND %s""", pos*10-9, pos*10).fetchall()
+        %s AND %s LIMIT 10""", (pos*10)-9, pos*10).fetchall()
         ls = []
         for name, acc, gen in users:
             if gen is None:gen = ""
