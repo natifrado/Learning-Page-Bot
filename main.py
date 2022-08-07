@@ -1047,7 +1047,7 @@ You can also «Forward» text from another chat or channel.
         if user_id == creator_id() or admins[str(user_id)].get('can_see'):
             count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
             users = db.select_query("""SELECT name, account_link, gender FROM students 
-                                        LIMIT 10""").fetchall()
+                                       ORDER BY id ASC LIMIT 10""").fetchall()
             ls = []
             print("len users is ", len(users))
             for n, a, g in users:
@@ -1066,14 +1066,13 @@ def on_members_setting(call: types.CallbackQuery):
     
     user_id, msg_id = call.message.chat.id, call.message.message_id
     pos = int(call.data.split('_')[1])
-    print(pos)
     try:
         bot.answer_callback_query(call.id)
         count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
         users = db.select_query("""SELECT name, account_link, gender FROM students WHERE id BETWEEN
-        %s AND %s LIMIT 10""", (pos*10)-9, pos*10).fetchall()
+        %s AND %s ORDER BY id ASC LIMIT 10""", (pos*10)-9, pos*10).fetchall()
         ls = []
-        print("len users 2", len(users))
+
         for name, acc, gen in users:
             if gen is None:gen = ""
             
@@ -1089,15 +1088,10 @@ def on_members_setting(call: types.CallbackQuery):
             total = pos * 10
         else:
             total = count
-        # print(total, count)
-        # bot.send_message(user_id, "On statics")
         bot.edit_message_text(f"{data}\n\nShowed {total}: Total {count}", user_id, msg_id,
                               reply_markup=members_button(count, pos), parse_mode="html")
     except apihelper.ApiException:
-        #raise
         bot.answer_callback_query(call.id, "Please press another button!")
-
-    except: raise
 
 
 @bot.message_handler(state='no-state')
