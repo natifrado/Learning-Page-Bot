@@ -78,7 +78,7 @@ def on_user_question(status, q_id):
 
 
 def main_buttons(l, user_id, **kwargs):
-    all_btn = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=3, one_time_keyboard=True)
+    all_btn = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=3)
     #home = types.KeyboardButton()
     send_m = types.KeyboardButton("📝 Send Message")
     bot_s = types.KeyboardButton("🤖 Bot Setting")
