@@ -1067,7 +1067,7 @@ def on_members(call: types.CallbackQuery):
     pos = int(call.data.split('_')[1])
     try:
         count = db.select_query("SELECT count(user_id) FROM users").fetchone()[0]
-        users = db.select_query("""SELECT id  FROM students WHERE id BETWEEN
+        users = db.select_query("""SELECT id FROM students WHERE id BETWEEN
         %s AND %s ORDER BY joined_date LIMIT 10""", pos*10-9, pos*10).fetchall()
         ls = []
         for i in users:
