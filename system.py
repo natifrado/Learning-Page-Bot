@@ -127,7 +127,7 @@ class UserJoinedChannelsFilter(SimpleCustomFilter):
         except: status = None
 
         if status is None:
-            return True
+            return 'start'
         if status in ['creator', 'admin']:
             return True
 
