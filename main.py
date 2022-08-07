@@ -1066,7 +1066,7 @@ def on_members(call: types.CallbackQuery):
     user_id, msg_id = call.message.chat.id, call.message.message_id
     pos = int(call.data.split('_')[1])
     try:
-        count = db.select_query("SELECT count(user_id) FROM users").fetchone()[0]
+        count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
         users = db.select_query("""SELECT id FROM students WHERE id BETWEEN
         %s AND %s ORDER BY joined_date LIMIT 10""", pos*10-9, pos*10).fetchall()
         ls = []
