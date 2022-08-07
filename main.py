@@ -1047,7 +1047,7 @@ You can also «Forward» text from another chat or channel.
         if user_id == creator_id() or admins[str(user_id)].get('can_see'):
             count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
             users = db.select_query("""SELECT name, account_link, gender FROM students 
-                                       ORDER BY joined_date DESC LIMIT 10""").fetchall()
+                                       ORDER BY joined_date LIMIT 10""").fetchall()
             ls = []
             for n, a, g in users:
                 if not g:
@@ -1066,27 +1066,26 @@ def on_members(call: types.CallbackQuery):
     user_id, msg_id = call.message.chat.id, call.message.message_id
     pos = int(call.data.split('_')[1])
     try:
-        count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
-        users = db.select_query("""SELECT name, account_link, gender FROM students WHERE id BETWEEN
-        %s AND %s""", pos*10-9, pos*10).fetchall()
+        count = db.select_query("SELECT count(user_id) FROM users").fetchone()[0]
+        users = db.select_query("""SELECT id  FROM users WHERE id BETWEEN
+        %s AND %s ORDER BY joined_date LIMIT 10""", pos*10-9, pos*10).fetchall()
         ls = []
-        left = count % 10
-        if not left:
-            total = pos * 10
-        elif left:
-            total = ((pos * 10) - count) + pos*10 if pos * 10 > 10 else ((count-(pos*10)))+pos*10
-        else:
-            total = count
-        for n, a, g in users:
-            if not g:
-                g = ''
-            ls.append(f"<a href='{DEEPLINK+a}'>{n}</a> {g}")
+        for i in users:
+            user = bot.get_chat(i)
+            ls.append(util.user_link(user))
         data_ = pd.Series(ls)
         txt = [f"<i>#{i + (pos*10-9)}.</i> {names}" for i, names in enumerate(data_)]
         data = '\n'.join(txt)
+        left = count % 10
+        if not left:
+            total = pos * 10
+        elif left and pos * 10 < count:
+            total = pos * 10
+        else:
+            total = count
         bot.edit_message_text(f"{data}\n\nShowed {total}: Total {count}", user_id, msg_id,
-                              reply_markup=members_button(count, pos), parse_mode="html")
-    except ApiTelegramException:
+                              reply_markup=members_button(count, pos))
+    except apihelper.ApiException:
         bot.answer_callback_query(call.id, "Please press another button!")
 
 
