@@ -1047,7 +1047,7 @@ You can also «Forward» text from another chat or channel.
         if user_id == creator_id() or admins[str(user_id)].get('can_see'):
             count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
             users = db.select_query("""SELECT name, account_link, gender FROM students 
-                                       ORDER BY joined_date LIMIT 10""").fetchall()
+                                        LIMIT 10""").fetchall()
             ls = []
             for n, a, g in users:
                 if not g:
@@ -1055,7 +1055,7 @@ You can also «Forward» text from another chat or channel.
                 ls.append(f"<a href='{DEEPLINK+a}'>{n}</a> {g}")
             data_ = pd.Series(ls)
             txt = [f"<i>#{i+1}.</i> {names}" for i, names in enumerate(data_)]
-            data = '\n'.join(txt)
+            data = '\n\n'.join(txt)
             bot.send_message(user_id, f'{data}\n\nShowed {len(ls)} out of {count}', parse_mode='html',
                              reply_markup=members_button(count, 1))
 
@@ -1079,7 +1079,7 @@ def on_members_setting(call: types.CallbackQuery):
             ls.append(user)
         data_ = pd.Series(ls)
         txt = [f"<i>#{i + (pos*10-9)}.</i> {names}" for i, names in enumerate(data_)]
-        data = '\n'.join(txt)
+        data = '\n\n'.join(txt)
         left = count % 10
         if not left:
             total = pos * 10
