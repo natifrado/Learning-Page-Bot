@@ -1081,13 +1081,13 @@ def on_members(call: types.CallbackQuery):
     try:
         count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
         users = db.select_query("""SELECT name, account_link, gender FROM students WHERE id BETWEEN
-        %s AND %s""", pos*10-9, pos*10).fetchall()
+                %s AND %s ORDER BY id ASC LIMIT 10""", (pos * 10) - 9, pos * 10).fetchall()
         ls = []
         left = count % 10
         if not left:
             total = pos * 10
-        elif left:
-            total = ((pos * 10) - count) + pos*10 if pos * 10 > 10 else ((count-(pos*10)))+pos*10
+        elif left and pos * 10 < count:
+            total = pos * 10
         else:
             total = count
         for n, a, g in users:
