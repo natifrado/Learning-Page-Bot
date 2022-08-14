@@ -221,7 +221,7 @@ def members_button(max_id: int, curret_row: int):
         if row_ >= curret_row or left:
             for i in range(1, 2):
                 print("Current row is ", curret_row, f"and {i} + {curret_row}")
-                if (curret_row + i) >= row_:
+                if ((curret_row + i) >= row_) and not left:
                     break
                 btn_list.append(
                     types.InlineKeyboardButton(f"▶ {curret_row + i}", callback_data=f'members_{curret_row + i}'))
