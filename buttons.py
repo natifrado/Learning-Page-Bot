@@ -50,7 +50,7 @@ def books_btn(lang, type_book, grade):
     bio = types.InlineKeyboardButton("🔬 Biology",callback_data=f'book:biology:{type_book}:{grade}')
     civ = types.InlineKeyboardButton("⚖ Civics",callback_data=f'book:civics:{type_book}:{grade}')
     hep = types.InlineKeyboardButton("⚽️ HPE",callback_data=f'book:hpe:{type_book}')
-    back = types.InlineKeyboardButton(text="🔙 Back" if lang == 'en' else "🔙 ተመለስ", callback_data=f'book:back:{type_book}')
+    back = types.InlineKeyboardButton(text="🔙 Back" if lang == 'en' else "🔙 ተመለስ", callback_data=f'book:back:{type_book}:{grade}')
     menu = types.InlineKeyboardButton(text="🏠 Main Menu" if lang == 'en' else "🏠 ዋና ገጽ", callback_data='book:main')
     all_btn.add(math, phy, chem, bio, civ, geo, ict, hep, his, en, am)
     all_btn.add(back, menu)
@@ -78,7 +78,7 @@ def on_user_question(status, q_id):
 
 
 def main_buttons(l, user_id, **kwargs):
-    all_btn = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=3)
+    all_btn = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=3, one_time_keyboard=True)
     #home = types.KeyboardButton()
     send_m = types.KeyboardButton("📝 Send Message")
     bot_s = types.KeyboardButton("🤖 Bot Setting")
@@ -224,16 +224,12 @@ def members_button(max_id: int, curret_row: int):
                     break
                 btn_list.append(
                     types.InlineKeyboardButton(f"▶ {curret_row + i}", callback_data=f'members_{curret_row + i}'))
-            if not curret_row == row_ and not left:
-                btn_list.append(types.InlineKeyboardButton(f"⏩ {row_}" if curret_row + 5 <= row_ else f"▶ {row_}",
-                                                           callback_data=f'members_{row_}'))
+            
         if not curret_row == row_+1 and left:
-            if not row_ + 1 == 2:
-                btn_list.append(types.InlineKeyboardButton(f"⏩ {row_ + 1}" if curret_row + 5 <= row_ else f"▶ {row_ + 1}",
+            btn_list.append(types.InlineKeyboardButton(f"⏩ {row_ + 1}" if curret_row + 5 <= row_ else f"▶ {row_ + 1}",
                                                         callback_data=f'members_{row_ + 1}'))
-        if not curret_row == row_ and not left:
-            if True:
-                btn_list.append(types.InlineKeyboardButton(f"⏩ {row_}" if curret_row + 5 <= row_ else f"▶ {row_}",
+        elif not curret_row == row_ and not left:
+            btn_list.append(types.InlineKeyboardButton(f"⏩ {row_}" if curret_row + 5 <= row_ else f"▶ {row_}",
                                                        callback_data=f'members_{row_}'))
     btn.add(*btn_list)
     return btn
@@ -267,9 +263,9 @@ def Panel(q_id):
 
 def withdraw(lang, link):
     if lang == 'am':
-        txt = "t.me/share/url?url=ሰላም👋+በሀገራችን%20ውስጥ%20ለሀገራችን%20ከ7-12%ላሉ%20ተማሪዎች%20" \
+        txt = "t.me/share/url?url=ሰላም👋+በሀገራችን%20ውስጥ%20ለሀገራችን%20ከ7-12%20ላሉ%20ተማሪዎች%20" \
           "የተሰራ%20የጥያቄና%20መልስ%20ቦት%20ያውቁ%20"\
-          f"ኖሯል?%20ከታች%20በሚገኘው%20ሊንክ%20እርሶም%20ተሳታፊ%20ይሁኑ።+{link}"
+          f"ኖሯል?%20ከታች%20በሚገኘው%20ሊንክ%20እርሶም%20ተሳታፊ%20ይሁኑ።%0A{link}"
     else:
         txt = 't.me/share/url?url=Hey👋+do+you+ever+know+in+our+country+for+grade+7-12+students+question+and+answer+' \
               f'platform+bot?+join+via+bellow+link+{link}'
