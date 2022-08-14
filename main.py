@@ -997,9 +997,9 @@ def add_user_balance(msg: types.Message):
 
     db.update_balance(user_id, balance)
     user = bot.get_chat(int(user_id))
-    bot.send_message(msg.chat.id, "✅ Balance added to <a href='tg://user?id={user.id}'>{user.id}</a> successfully.",
+    bot.send_message(msg.chat.id, f"✅ Balance added to <a href='tg://user?id={user.id}'>{user.id}</a> successfully.",
                      parse_mode='html')
-
+    bot.delete_state(msg.chat.id)
 
 def bot_stng_msg(user_id):
     bot.send_message(user_id, f"<b>🤖 Bot Setting</b>\n\nFrom this menu you can manage your bot setting.",
