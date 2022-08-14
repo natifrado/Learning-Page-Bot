@@ -31,7 +31,7 @@ db = PrivateDatabase()
 ADMIN_ID = 5213764043
 CHANNEL_ID = -1001646258900
 
-TOKEN = os.getenv('TOKEN')
+TOKEN = "5449715535:AAHSPwPF_PXyJsgKp9vf_oQ3b3iJOVP85C8" # os.getenv('TOKEN')
 WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 bot = TeleBot(TOKEN)
 
@@ -107,7 +107,7 @@ def start_message(msg: types.Message):
             status = 'creator'
         else: status = 'member'
 
-        db.save_data('Student', user_id, time(), generator.account_link(), status)
+        db.save_data('Student', user_id, time(), f"i{user_id}", generator.account_link(), status)
     lang = user_lang(user_id)
     if lang == 'en':
         bot.send_message(msg.chat.id, "_Select one Option_", reply_markup=main_buttons('en', user_id, **kwargs),
@@ -219,7 +219,7 @@ def free_user(msg: types.Message):
                                           f"🧧 <b>Username:</b> {us}\n"
                                           f"💬 <b>Bio:</b> {bio}\n" 
                                           f"❇ <b>status:</b> {stat}\n" 
-                                          f"🆔 <a href='tg://user?id={get.id}'>{get.id}</a>\n"
+                                          f"🆔 <a href='tg://user?id={get.id}'>{get.id}</a>"
                                           f"@{get.username}",
                              parse_mode="HTML", reply_markup=on_user_(user_id, banned, admin_id=creator_id()))
 
@@ -705,7 +705,7 @@ def on_preview_answer(msg: types.Message):
            file = text = "#asker\n\n" + text
 
     else:
-        file = getattr(msg, msg.content_type).file_id if not photo else msg.photo[-1].file_id
+        file = getattr(msg, msg.content_type).file_id if photo else msg.photo[-1].file_id
         if asker_id == user_id:
             file = caption = "#asker\n\n" + caption
     db.insert_answer(user_id, q_id, file, typ, generator.question_link(), caption, reply_to)
@@ -862,11 +862,6 @@ def for_banned_user(msg: Union[types.Message, types.CallbackQuery]):
                      reply_markup=remove)
 
 
-@bot.message_handler(joined='start', chat_types=['private'])
-def join_channel_message_start(msg: Union[types.Message, types.CallbackQuery]):
-    start_message(msg)
-
-    
 @bot.message_handler(joined=False, chat_types=['private'])
 def join_channel_message(msg: Union[types.Message, types.CallbackQuery]):
     """
@@ -881,7 +876,7 @@ def join_channel_message(msg: Union[types.Message, types.CallbackQuery]):
         if value['force_join']:
             try:
                 if not bot.get_chat_member(channel, user_id).is_member:
-                    username += "@"+bot.get_chat(channel).username + "\n"
+                    username += "@" + bot.get_chat(channel).username + "\n"
                     usernames += "▫️ @" + bot.get_chat(channel).username + "\n"
             except Exception as e:
                 if 'user not found' in e.args[0]:
@@ -942,8 +937,9 @@ def get_user(call: types.CallbackQuery):
         bot.send_message(call.message.chat.id, f"<b>Name:</b> {name} {gend}\n"
                                                f"<b>Username:</b> {us}\n<b>Bio:</b> {bio}\n"
                                                f"<b>status:</b> {stat}\n"
-                                               f"real <a href='tg://user?id={get.id}'>{get.id}</a>",
-                                               parse_mode="html")
+                                               f"real <a href='tg://user?id={get.id}'>{get.id}</a>"
+                                               f"ID: <code>{get.id}</code>",
+                                               parse_mode="HTML")
     elif text == 'unban':
         if int(user_id) == creator_id():
             return
@@ -967,6 +963,11 @@ def get_user(call: types.CallbackQuery):
         bot.set_state(call.message.chat.id, OnMessage.to_user)
         with bot.retrieve_data(call.message.chat.id) as data:
             data['to_message'] = user_id
+    elif text == 'add':
+        bot.send_message(call.message.chat.id, "Send your ammount")
+        bot.set_state(call.message.chat.id, 'add_user_balance')
+        with bot.retrieve_data(call.from_user.id) as data:
+            data['user_id_balance'] = user_id
 
 
 @bot.callback_query_handler(func=lambda call: re.match(r'^usend', call.data))
@@ -986,6 +987,18 @@ def send_message(call: types.CallbackQuery):
         logging.exception("msg cannot be sent")
     finally:
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id)
+
+
+@bot.message_handler(state='add_user_balance', is_digit=True)
+def add_user_balance(msg: types.Message):
+    balance = msg.text
+    with bot.retrieve_data(msg.chat.id) as data:
+        user_id = data['user_id_balance']
+
+    db.update_balance(user_id, balance)
+    user = bot.get_chat(int(user_id))
+    bot.send_message(msg.chat.id, "✅ Balance added to <a href='tg://user?id={user.id}'>{user.id}</a> successfully.",
+                     parse_mode='html')
 
 
 def bot_stng_msg(user_id):
@@ -1047,50 +1060,46 @@ You can also «Forward» text from another chat or channel.
         if user_id == creator_id() or admins[str(user_id)].get('can_see'):
             count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
             users = db.select_query("""SELECT name, account_link, gender FROM students 
-                                       ORDER BY id ASC LIMIT 10""").fetchall()
+                                       ORDER BY joined_date DESC LIMIT 10""").fetchall()
             ls = []
-            print("len users is ", len(users))
             for n, a, g in users:
                 if not g:
                     g = ''
                 ls.append(f"<a href='{DEEPLINK+a}'>{n}</a> {g}")
-            data_ = pd.Series(ls)
+            data_ = pd.Series(ls, index=[i for i in range(1, count+1)])
             txt = [f"<i>#{i+1}.</i> {names}" for i, names in enumerate(data_)]
-            data = '\n\n'.join(txt)
+            data = '\n'.join(txt)
             bot.send_message(user_id, f'{data}\n\nShowed {len(ls)} out of {count}', parse_mode='html',
                              reply_markup=members_button(count, 1))
 
 
-@bot.callback_query_handler(lambda call: re.search(r'^members', call.data))
-def on_members_setting(call: types.CallbackQuery):
-    
+@bot.callback_query_handler(lambda call: re.search(r'members', call.data))
+def on_members(call: types.CallbackQuery):
+    bot.answer_callback_query(call.id)
     user_id, msg_id = call.message.chat.id, call.message.message_id
     pos = int(call.data.split('_')[1])
     try:
-        bot.answer_callback_query(call.id)
         count = db.select_query("SELECT count(user_id) FROM students").fetchone()[0]
         users = db.select_query("""SELECT name, account_link, gender FROM students WHERE id BETWEEN
-        %s AND %s ORDER BY id ASC LIMIT 10""", (pos*10)-9, pos*10).fetchall()
+        %s AND %s""", pos*10-9, pos*10).fetchall()
         ls = []
-
-        for name, acc, gen in users:
-            if gen is None:gen = ""
-            
-            user = f"<a href='{DEEPLINK+acc}'>{name}</a> {gen}"
-            ls.append(user)
-        data_ = pd.Series(ls)
-        txt = [f"<i>#{i + (pos*10-9)}.</i> {names}" for i, names in enumerate(data_)]
-        data = '\n\n'.join(txt)
         left = count % 10
         if not left:
             total = pos * 10
-        elif left and pos * 10 < count:
-            total = pos * 10
+        elif left:
+            total = ((pos * 10) - count) + pos*10 if pos * 10 > 10 else ((count-(pos*10)))+pos*10
         else:
             total = count
+        for n, a, g in users:
+            if not g:
+                g = ''
+            ls.append(f"<a href='{DEEPLINK+a}'>{n}</a> {g}")
+        data_ = pd.Series(ls, index=[i for i in range(pos*10-9, pos*10)])
+        txt = [f"<i>#{i + (pos*10-9)}.</i> {names}" for i, names in enumerate(data_)]
+        data = '\n'.join(txt)
         bot.edit_message_text(f"{data}\n\nShowed {total}: Total {count}", user_id, msg_id,
-                              reply_markup=members_button(count, pos), parse_mode="html")
-    except apihelper.ApiException:
+                              reply_markup=members_button(count, pos))
+    except ApiTelegramException:
         bot.answer_callback_query(call.id, "Please press another button!")
 
 
@@ -1210,7 +1219,7 @@ def send_user_comment(call: types.CallbackQuery):
     bot.delete_message(user_id, call.message.message_id)
 
     try:
-        bot.edit_message_reply_markup(channel, post_msg_id, reply_markup=btn)
+        bot.edit_message_reply_markup(channel[0], post_msg_id, reply_markup=btn)
     except Exception as e:
         logging.exception(e)
     bot.delete_state(user_id)
@@ -1344,7 +1353,7 @@ def on_got_message(call: types.CallbackQuery):
 @bot.message_handler(state=OnMessage.add_btn)
 def on_send_btn(msg: types.Message):
     text = msg.text
-    match = re.findall(r".+\s*->\s*.+", text, re.VERBOSE)
+    match = re.findall(r".+\s*->\s*[a-zA-Z.@]+", text)
     if match:
         btns = {k.split('->')[0]: k.split('->')[1] for k in match}
         for k, v in btns.items():
@@ -1524,6 +1533,7 @@ def get_books(call: types.CallbackQuery):
     else:
         typ = 'reference'
     text, btn = info_book(call, gr, typ)
+    print("Grade: ", gr, "Type: ", typ)
     bot.edit_message_text(text, call.from_user.id, call.message.message_id, reply_markup=btn, parse_mode='html')
 
 
@@ -1614,19 +1624,19 @@ def on_get_books(call: types.CallbackQuery):
             bot.answer_callback_query(call.id, "This book is not available", show_alert=True)
 
     elif subject == 'back':
-        bot.answer_callback_query(call.id)
         bk = call.data.split(":")[2]
-        if bk == 'student': bk = 'edus'
-        elif bk == 'teacher': bk = 'edut'
+        if bk == 'student':
+            bk = 'edus'
+        elif bk == 'teacher':
+            bk = 'edut'
         else: bk = 'ref'
         if call.data == call.data:
             if lang == 'am':
                 text = "የክፍል ደረጃዎን ይምረጡ"
             else:
                 text = "Select Your Grade"
-            bot.edit_message_text(text, call.from_user.id, call.message.id, reply_markup=grade(lang, bk))
+            bot.edit_message_text(text, call.from_user.id, call.message.id, reply_markup=grade(lang, bk), parse_mode='html')
     else:
-        bot.answer_callback_query(call.id)
         if lang == 'am':
             text = "_የመጽሃፍ አይነት ይምረጡ_"
         else:
@@ -1654,7 +1664,7 @@ def on_book_setting(call: types.CallbackQuery):
         cur.execute("update books set msg_id = '0' where id = %s", (bi,))
         conn.commit()
         text, btn = info_book(call, gr, ty)
-        bot.edit_message_text(text, call.from_user.id, call.message.message_id, reply_markup=btn, parse_mode='html')        
+        bot.edit_message_text(text, call.from_user.id, call.message.message_id, reply_markup=btn, parse_mode='html')
     
     elif cmd == 'back':
         text, btn = info_book(call, gr, ty)
