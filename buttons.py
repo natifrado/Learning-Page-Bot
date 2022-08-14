@@ -220,11 +220,11 @@ def members_button(max_id: int, curret_row: int):
             btn_list.append(types.InlineKeyboardButton(f"{curret_row}", callback_data=f'members_{curret_row}'))
         if row_ >= curret_row or left:
             for i in range(1, 2):
-                if (curret_row + i) > row_:
+                if (curret_row + i) >= row_:
                     break
                 btn_list.append(
                     types.InlineKeyboardButton(f"▶ {curret_row + i}", callback_data=f'members_{curret_row + i}'))
-            
+
         if not curret_row == row_+1 and left:
             btn_list.append(types.InlineKeyboardButton(f"⏩ {row_ + 1}" if curret_row + 5 <= row_ else f"▶ {row_ + 1}",
                                                         callback_data=f'members_{row_ + 1}'))
