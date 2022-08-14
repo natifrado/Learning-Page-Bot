@@ -1066,7 +1066,7 @@ You can also «Forward» text from another chat or channel.
                 if not g:
                     g = ''
                 ls.append(f"<a href='{DEEPLINK+a}'>{n}</a> {g}")
-            data_ = pd.Series(ls, index=[i for i in range(1, count+1)])
+            data_ = pd.Series(ls)
             txt = [f"<i>#{i+1}.</i> {names}" for i, names in enumerate(data_)]
             data = '\n'.join(txt)
             bot.send_message(user_id, f'{data}\n\nShowed {len(ls)} out of {count}', parse_mode='html',
@@ -1094,7 +1094,7 @@ def on_members(call: types.CallbackQuery):
             if not g:
                 g = ''
             ls.append(f"<a href='{DEEPLINK+a}'>{n}</a> {g}")
-        data_ = pd.Series(ls, index=[i for i in range(pos*10-9, pos*10)])
+        data_ = pd.Series(ls)
         txt = [f"<i>#{i + (pos*10-9)}.</i> {names}" for i, names in enumerate(data_)]
         data = '\n'.join(txt)
         bot.edit_message_text(f"{data}\n\nShowed {total}: Total {count}", user_id, msg_id,
