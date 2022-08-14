@@ -113,16 +113,17 @@ def on_book_click(id, exist=False):
 
 
 def user_profile_info(user_id, banned=False, admin_id=None, **kwargs):
-    all = types.InlineKeyboardMarkup(row_width=3)
+    all = types.InlineKeyboardMarkup(row_width=4)
     btn = []
     chat = types.InlineKeyboardButton("📝 Send Message", callback_data=f'user:chat:{user_id}')
     ban = types.InlineKeyboardButton("🚷" if not banned else "✅" , callback_data=f'user:ban:{user_id}'
                     if not banned else f"user:unban:{user_id}")
     sp = types.InlineKeyboardButton("👤" , callback_data=f'user:show:{user_id}')
+    add = types.InlineKeyboardButton("➕", callback_data=f'user:add:{user_id}')
     all.add(chat)
     if admin_id == creator_id() or kwargs.get(str(admin_id), {}).get(
         'ban_user'):
-        btn.append(ban)
+        btn.append(ban, add)
     if admin_id == creator_id() or kwargs.get(str(admin_id), {}).get(
         'can_see'):
         btn.append(sp)
@@ -131,18 +132,20 @@ def user_profile_info(user_id, banned=False, admin_id=None, **kwargs):
 
 
 def on_user_(user_id, banned=False, admin_id=None, **kwargs):
-    all = types.InlineKeyboardMarkup(row_width=3)
+    all = types.InlineKeyboardMarkup(row_width=4)
     chat = types.InlineKeyboardButton("📤", callback_data=f'user:reply:{user_id}' )
     ban = types.InlineKeyboardButton("🚷" if not banned else "✅", callback_data=f'user:ban:{user_id}'
     if not banned else f"user:unban:{user_id}")
+    add = types.InlineKeyboardButton("➕", callback_data=f'user:add:{user_id}')
     btn = []
     sp = types.InlineKeyboardButton("👤", callback_data=f'user:show:{user_id}')
     if admin_id == creator_id() or kwargs.get(str(admin_id), {}).get(
         'ban_member'):
-        btn.append(ban)
+        btn.append(ban, add)
     if admin_id == creator_id() or kwargs.get(str(admin_id), {}).get(
         'can_see'):
         btn.append(sp)
+
     all.add(chat, *btn)
     return all
 
