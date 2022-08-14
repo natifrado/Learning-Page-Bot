@@ -1068,7 +1068,7 @@ You can also «Forward» text from another chat or channel.
                 ls.append(f"<a href='{DEEPLINK+a}'>{n}</a> {g}")
             data_ = pd.Series(ls)
             txt = [f"<i>#{i+1}.</i> {names}" for i, names in enumerate(data_)]
-            data = '\n'.join(txt)
+            data = '\n\n'.join(txt)
             bot.send_message(user_id, f'{data}\n\nShowed {len(ls)} out of {count}', parse_mode='html',
                              reply_markup=members_button(count, 1))
 
@@ -1096,9 +1096,9 @@ def on_members(call: types.CallbackQuery):
             ls.append(f"<a href='{DEEPLINK+a}'>{n}</a> {g}")
         data_ = pd.Series(ls)
         txt = [f"<i>#{i + (pos*10-9)}.</i> {names}" for i, names in enumerate(data_)]
-        data = '\n'.join(txt)
+        data = '\n\n'.join(txt)
         bot.edit_message_text(f"{data}\n\nShowed {total}: Total {count}", user_id, msg_id,
-                              reply_markup=members_button(count, pos))
+                              reply_markup=members_button(count, pos), parse_mode='html')
     except ApiTelegramException:
         bot.answer_callback_query(call.id, "Please press another button!")
 
