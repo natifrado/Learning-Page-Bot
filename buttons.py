@@ -123,7 +123,8 @@ def user_profile_info(user_id, banned=False, admin_id=None, **kwargs):
     all.add(chat)
     if admin_id == creator_id() or kwargs.get(str(admin_id), {}).get(
         'ban_user'):
-        btn.append(ban, add)
+        btn.append(ban)
+        btn.append(add)
     if admin_id == creator_id() or kwargs.get(str(admin_id), {}).get(
         'can_see'):
         btn.append(sp)
@@ -141,7 +142,8 @@ def on_user_(user_id, banned=False, admin_id=None, **kwargs):
     sp = types.InlineKeyboardButton("👤", callback_data=f'user:show:{user_id}')
     if admin_id == creator_id() or kwargs.get(str(admin_id), {}).get(
         'ban_member'):
-        btn.append(ban, add)
+        btn.append(ban)
+        btn.append(add)
     if admin_id == creator_id() or kwargs.get(str(admin_id), {}).get(
         'can_see'):
         btn.append(sp)
