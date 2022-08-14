@@ -228,7 +228,7 @@ def members_button(max_id: int, curret_row: int):
         if not curret_row == row_+1 and left:
             btn_list.append(types.InlineKeyboardButton(f"⏩ {row_ + 1}" if curret_row + 5 <= row_ else f"▶ {row_ + 1}",
                                                         callback_data=f'members_{row_ + 1}'))
-        elif not curret_row == row_ and not left:
+        if not curret_row == row_ and not left:
             btn_list.append(types.InlineKeyboardButton(f"⏩ {row_}" if curret_row + 5 <= row_ else f"▶ {row_}",
                                                        callback_data=f'members_{row_}'))
     btn.add(*btn_list)
