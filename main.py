@@ -705,7 +705,7 @@ def on_preview_answer(msg: types.Message):
            file = text = "#asker\n\n" + text
 
     else:
-        file = getattr(msg, msg.content_type).file_id if photo else msg.photo[-1].file_id
+        file = getattr(msg, msg.content_type).file_id if not photo else msg.photo[-1].file_id
         if asker_id == user_id:
             file = caption = "#asker\n\n" + caption
     db.insert_answer(user_id, q_id, file, typ, generator.question_link(), caption, reply_to)
