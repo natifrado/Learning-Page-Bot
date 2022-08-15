@@ -107,7 +107,7 @@ def start_message(msg: types.Message):
             status = 'creator'
         else: status = 'member'
 
-        db.save_data('Student', user_id, time(), f"i{user_id}", generator.account_link(), status)
+        db.save_data('Student', user_id, time(), generator.account_link(), status)
     lang = user_lang(user_id)
     if lang == 'en':
         bot.send_message(msg.chat.id, "_Select one Option_", reply_markup=main_buttons('en', user_id, **kwargs),
